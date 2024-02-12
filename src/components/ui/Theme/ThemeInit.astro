@@ -11,4 +11,8 @@
             document.documentElement.dataset.themeValue = 'auto';
         }
     });
+    document.addEventListener('astro:after-swap', () => {
+        document.documentElement.dataset.theme = window.localStorage.getItem(key) ?? colorScheme;
+        document.documentElement.dataset.themeValue = window.localStorage.getItem(key) ?? 'auto';
+    });
 </script>
