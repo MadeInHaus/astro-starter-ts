@@ -7,6 +7,7 @@
     --surface-color-2-hover: #fff;
     --border-color-1: #aaa;
     --border-color-2: #bbb;
+    color-scheme: light;
 }
 
 :root[data-theme='dark'] {
@@ -18,6 +19,7 @@
     --surface-color-2-hover: #111;
     --border-color-1: #333;
     --border-color-2: #2c2c2c;
+    color-scheme: dark;
 }
 
 body {
