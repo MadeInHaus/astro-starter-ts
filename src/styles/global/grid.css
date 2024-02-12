@@ -1,0 +1,29 @@
+:root {
+    --grid-margin: 20px;
+    --grid-gap: 10px;
+    --grid-columns: 6;
+
+    --grid-content-width: calc(100vw - var(--grid-margin) * 2);
+    --grid-gaps-width: calc((var(--grid-columns) - 1) * var(--grid-gap));
+    --grid-cols-width: calc(var(--grid-content-width) - var(--grid-gaps-width));
+    --grid-col-width: calc(var(--grid-cols-width) / var(--grid-columns));
+}
+
+@media (min-width: 768px) {
+    :root {
+        --grid-margin: 50px;
+        --grid-gap: 20px;
+    }
+}
+
+@media (min-width: 1280px) {
+    :root {
+        --grid-columns: 12;
+    }
+}
+
+@media (min-width: 1920px) {
+    :root {
+        --grid-margin: 100px;
+    }
+}

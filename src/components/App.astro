@@ -1,0 +1,45 @@
+---
+// Resets, global styles
+import '@/styles/global/reset.css';
+import '@/styles/global/theme.css';
+
+// Global CSS variable definitions
+import '@/styles/global/grid.css';
+import '@/styles/global/colors.css';
+import '@/styles/global/animations.css';
+import '@/styles/global/misc.css';
+
+// Global text styles
+import '@/styles/global/typography.css';
+
+import Header from '@/components/ui/Header/Header.astro';
+import ThemeInit from '@/components/ui/Theme/ThemeInit.astro';
+
+import styles from './App.module.css';
+
+interface Props {
+    title?: string;
+}
+
+const { title = 'HAUS Astro TS Starter' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        <meta name="title" content={title} />
+        <meta name="description" content="HAUS Astro Starter Description" />
+        <meta name="generator" content={Astro.generator} />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <title>{title}</title>
+        <ThemeInit />
+    </head>
+    <body>
+        <Header />
+        <div class:list={[styles.main, 'body']}>
+            <slot />
+        </div>
+    </body>
+</html>

@@ -1,0 +1,14 @@
+<script is:inline>
+    const key = 'theme';
+    const mq = '(prefers-color-scheme: dark)';
+    const colorScheme = window.matchMedia(mq).matches ? 'dark' : 'light';
+    const storedTheme = window.localStorage.getItem(key);
+    document.documentElement.dataset.theme = storedTheme ?? colorScheme;
+    document.documentElement.dataset.themeValue = storedTheme ?? 'auto';
+    window.matchMedia(mq).addEventListener('change', e => {
+        if (window.localStorage.getItem(key) == null) {
+            document.documentElement.dataset.theme = e.matches ? 'dark' : 'light';
+            document.documentElement.dataset.themeValue = 'auto';
+        }
+    });
+</script>
