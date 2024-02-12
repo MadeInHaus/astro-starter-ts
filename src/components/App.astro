@@ -12,6 +12,8 @@ import '@/styles/global/misc.css';
 // Global text styles
 import '@/styles/global/typography.css';
 
+import { ViewTransitions } from 'astro:transitions';
+
 import Header from '@/components/ui/Header/Header.astro';
 import ThemeInit from '@/components/ui/Theme/ThemeInit.astro';
 
@@ -25,7 +27,7 @@ const { title = 'HAUS Astro TS Starter' } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark" data-theme-value="auto">
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -35,6 +37,7 @@ const { title = 'HAUS Astro TS Starter' } = Astro.props;
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <title>{title}</title>
         <ThemeInit />
+        <ViewTransitions />
     </head>
     <body>
         <Header />
