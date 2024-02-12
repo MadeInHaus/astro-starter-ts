@@ -1,0 +1,13 @@
+---
+import CarouselWrapper from '@/components/ui/Carousel/CarouselWrapper';
+
+import styles from './Carousel.module.css';
+
+const api = 'https://dog.ceo/api/breed/schnauzer/miniature/images';
+const response = await fetch(api);
+const { message: dogs } = await response.json();
+---
+
+<div class={styles.root}>
+    <CarouselWrapper client:load dogs={dogs} />
+</div>
