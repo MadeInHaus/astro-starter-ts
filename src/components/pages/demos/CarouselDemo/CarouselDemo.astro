@@ -1,0 +1,16 @@
+---
+import Carousel from '@/components/ui/Carousel/Carousel.astro';
+
+import styles from './CarouselDemo.module.css';
+
+const api = 'https://dog.ceo/api/breed/schnauzer/miniature/images';
+const response = await fetch(api);
+const json = await response.json();
+const dogs = json.message;
+---
+
+<div class={styles.root}>
+    <Carousel items={dogs}>
+        {(item: string) => <img src={item} alt="" />}
+    </Carousel>
+</div>

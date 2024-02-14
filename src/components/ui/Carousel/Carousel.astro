@@ -1,0 +1,64 @@
+---
+import type { HTMLTag, Polymorphic } from 'astro/types';
+
+import CarouselItem from './CarouselItem.astro';
+
+import styles from './Carousel.module.css';
+import cx from 'clsx';
+
+type Props<Tag extends HTMLTag> = Polymorphic<{
+    as: Tag;
+    itemAs?: Tag;
+    items: any[];
+    align?: 'start' | 'center';
+    damping?: number;
+    disableSnap?: boolean;
+    enableVerticalScroll?: boolean;
+    enableNavigationGestures?: boolean;
+    activeItemIndex?: number;
+    className?: string;
+    itemClassName?: string;
+}>;
+
+const {
+    as: Tag = 'ul',
+    itemAs = 'li',
+    items,
+    align = 'start',
+    damping = 200,
+    disableSnap = false,
+    enableVerticalScroll = false,
+    enableNavigationGestures = false,
+    activeItemIndex = 0,
+    className,
+    itemClassName,
+} = Astro.props;
+
+const renderedItems: string[] = Astro.slots.has('default')
+    ? await Promise.all(items.map((item: any) => Astro.slots.render('default', [item])))
+    : [];
+---
+
+<x-carousel>
+    <Tag class={cx(styles.root, className)}>
+        {
+            renderedItems.map(renderedItem => (
+                <CarouselItem as={itemAs} className={cx(styles.item, itemClassName)}>
+                    <Fragment set:html={renderedItem} />
+                </CarouselItem>
+            ))
+        }
+    </Tag>
+</x-carousel>
+
+<script>
+    class Carousel extends HTMLElement {
+        constructor() {
+            super();
+        }
+
+        connectedCallback() {}
+    }
+
+    customElements.define('x-carousel', Carousel);
+</script>
