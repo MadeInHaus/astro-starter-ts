@@ -1,45 +1,37 @@
 ---
 import type { HTMLTag, Polymorphic } from 'astro/types';
+import type { CarouselOptions, CarouselProps } from './types';
+
+import cx from 'clsx';
 
 import CarouselItem from './CarouselItem.astro';
 
 import styles from './Carousel.module.css';
-import cx from 'clsx';
 
-type Props<Tag extends HTMLTag> = Polymorphic<{
-    as: Tag;
-    itemAs?: Tag;
-    items: any[];
-    align?: 'start' | 'center';
-    damping?: number;
-    disableSnap?: boolean;
-    enableVerticalScroll?: boolean;
-    enableNavigationGestures?: boolean;
-    activeItemIndex?: number;
-    className?: string;
-    itemClassName?: string;
-}>;
+// type SnapDistanceResult = { index: number; distance: number };
+// type ItemPositionResult = { x1: number; x2: number };
+// type DragStartValue = { t: number; x: number };
+// type DragRegisterValue = { t: number; x: number; dt: number; dx: number };
+// type WheelDataValue = { t: number; d: number; dt?: number };
 
-const {
-    as: Tag = 'ul',
-    itemAs = 'li',
-    items,
-    align = 'start',
-    damping = 200,
-    disableSnap = false,
-    enableVerticalScroll = false,
-    enableNavigationGestures = false,
-    activeItemIndex = 0,
-    className,
-    itemClassName,
-} = Astro.props;
+type Props<Tag extends HTMLTag> = CarouselOptions &
+    CarouselProps &
+    Polymorphic<{
+        as: Tag;
+        itemAs?: Tag;
+    }>;
+
+const { as: Tag = 'ul', itemAs = 'li', items, className, itemClassName, ...options } = Astro.props;
 
 const renderedItems: string[] = Astro.slots.has('default')
     ? await Promise.all(items.map((item: any) => Astro.slots.render('default', [item])))
     : [];
 ---
 
-<x-carousel>
+<x-carousel
+    data-options={JSON.stringify({ ...options })}
+    data-props={JSON.stringify({ as: Tag, itemAs })}
+>
     <Tag class={cx(styles.root, className)}>
         {
             renderedItems.map(renderedItem => (
@@ -52,12 +44,168 @@ const renderedItems: string[] = Astro.slots.has('default')
 </x-carousel>
 
 <script>
+    import type { CarouselOptions } from './types';
+    import { getCSSValues } from './utils';
+    import { modulo } from '@madeinhaus/utils';
+
     class Carousel extends HTMLElement {
+        private align: CarouselOptions['align'];
+        private damping: CarouselOptions['damping'];
+        private disableSnap: CarouselOptions['disableSnap'];
+        private enableVerticalScroll: CarouselOptions['enableVerticalScroll'];
+        private enableNavigationGestures: CarouselOptions['enableNavigationGestures'];
+
+        private items: HTMLElement[];
+        private container: HTMLElement;
+        private containerWidth: number = 0;
+        private resizeObserver?: ResizeObserver;
+
+        private gap: number = 0;
+        private itemWidth: number = 0;
+        private itemWidths: Map<number, number> = new Map();
+        private itemOffsets: Map<number, number> = new Map();
+        private snapPos: number = 0;
+        private snapPosStart: number = 0;
+        private snapPosEnd: number = 0;
+        private autoScroll: number = 0;
+        private activeItemIndex: number = 0;
+        private activeItemIndexInternal: number = 0;
+
         constructor() {
             super();
+            const options = JSON.parse(this.dataset.options ?? '{}') as CarouselOptions;
+            this.align = options.align ?? 'start';
+            this.damping = options.damping ?? 200;
+            this.disableSnap = options.disableSnap ?? true;
+            this.enableVerticalScroll = options.enableVerticalScroll ?? false;
+            this.enableNavigationGestures = options.enableNavigationGestures ?? false;
+
+            const props = JSON.parse(this.dataset.props ?? '{}') as { as: string; itemAs: string };
+            const as = props.as ?? 'ul';
+            const itemAs = props.itemAs ?? 'li';
+            this.container = this.querySelector(`& > ${as}`)!;
+            this.items = Array.from(this.querySelectorAll(`& > ${as} > ${itemAs}`));
         }
 
-        connectedCallback() {}
+        connectedCallback() {
+            console.log(
+                this.align,
+                this.damping,
+                this.disableSnap,
+                this.enableVerticalScroll,
+                this.enableNavigationGestures,
+                this.items,
+                this.container
+            );
+            this.resizeObserver = new ResizeObserver(() => this.refresh());
+            this.resizeObserver.observe(this.container);
+        }
+
+        disconnectedCallback() {
+            this.resizeObserver?.unobserve(this.container);
+        }
+
+        private set disabled(value: boolean) {
+            this.container.classList.toggle('disabled', value);
+        }
+        private get disabled() {
+            return this.container.classList.contains('disabled');
+        }
+
+        private refresh = () => {
+            const values = getCSSValues(this.container);
+            this.gap = values.gap;
+            this.itemWidth = values.width;
+            this.snapPos = values.snap;
+            this.snapPosStart = values.snapStart;
+            this.snapPosEnd = values.snapEnd;
+            this.disabled = values.disabled;
+            if (Math.abs(this.autoScroll) !== Math.abs(values.autoScroll)) {
+                this.autoScroll = values.autoScroll;
+            }
+            if (this.disabled) {
+                // stopAllAnimations();
+                // removePointerEvents();
+                this.container.childNodes.forEach(node => {
+                    (node as HTMLElement).style.transform = '';
+                });
+                return;
+            }
+            this.containerWidth = this.container.getBoundingClientRect().width;
+            this.calculateItemWidths();
+            this.calculateItemOffsets();
+            try {
+                // this.positionItems();
+            } catch (e) {
+                console.error('boom');
+                throw e;
+            }
+            // Start or stop auto-scroll animation
+            if (this.autoScroll !== 0) {
+                // this.animateAutoScroll();
+            } else {
+                // this.stopAutoScrollAnimation();
+            }
+        };
+
+        private calculateItemWidths = () => {
+            this.itemWidths.clear();
+            this.container.childNodes.forEach((node, index) => {
+                this.itemWidths.set(index, (node as HTMLElement).offsetWidth);
+            });
+        };
+
+        private calculateItemOffsets = () => {
+            const totalItems = this.items.length;
+            const offsets = new Map<number, number>();
+            const iActive = this.activeItemIndexInternal;
+            if (this.itemWidth) {
+                for (let i = 0; i < totalItems; i++) {
+                    offsets.set(i, (iActive - i) * (this.itemWidth + this.gap));
+                }
+            } else {
+                offsets.set(iActive, 0); // Offset of activeItem is by definition 0
+                const maxDist = Math.max(iActive, totalItems - iActive);
+                for (let i = 1; i < maxDist; i++) {
+                    const iLeft = iActive - i;
+                    const iRight = iActive + i;
+                    if (iLeft >= 0) {
+                        const iLeft0 = iLeft + 1;
+                        const iLeft0Offset = offsets.get(iLeft0) ?? 0;
+                        const neighborOffset = this.getDistanceToNeighbor(iLeft0, 1);
+                        const offset = iLeft0Offset + neighborOffset;
+                        offsets.set(iLeft, offset);
+                    }
+                    if (iRight < totalItems) {
+                        const iRight0 = iRight - 1;
+                        const iRight0Offset = offsets.get(iRight0) ?? 0;
+                        const neighborOffset = this.getDistanceToNeighbor(iRight0, -1);
+                        const offset = iRight0Offset + neighborOffset;
+                        offsets.set(iRight, offset);
+                    }
+                }
+            }
+            this.itemOffsets = offsets;
+        };
+
+        private getDistanceToNeighbor = (i: number, dir: 1 | -1) => {
+            const totalItems = this.items.length;
+            const index = modulo(i, totalItems);
+            if (this.align === 'center') {
+                const indexNeighbor = modulo(i - dir, totalItems);
+                const currHalf = this.getItemWidth(index) / 2;
+                const nextHalf = this.getItemWidth(indexNeighbor) / 2;
+                return dir * (this.gap + currHalf + nextHalf);
+            } else {
+                const indexNeighbor = modulo(i - Math.max(dir, 0), totalItems);
+                const width = this.getItemWidth(indexNeighbor);
+                return dir * (this.gap + width);
+            }
+        };
+
+        private getItemWidth = (index: number): number => {
+            return this.itemWidths.get(index) ?? 0;
+        };
     }
 
     customElements.define('x-carousel', Carousel);

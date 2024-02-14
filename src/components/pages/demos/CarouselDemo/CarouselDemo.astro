@@ -10,7 +10,14 @@ const dogs = json.message;
 ---
 
 <div class={styles.root}>
-    <Carousel items={dogs}>
-        {(item: string) => <img src={item} alt="" />}
+    <Carousel items={dogs} className={styles.carousel} itemClassName={styles.item}>
+        {
+            (item: string) => (
+                <div class={styles.itemContainer}>
+                    <div class={styles.index}>1</div>
+                    <img src={item} class={styles.image} alt="" />
+                </div>
+            )
+        }
     </Carousel>
 </div>
