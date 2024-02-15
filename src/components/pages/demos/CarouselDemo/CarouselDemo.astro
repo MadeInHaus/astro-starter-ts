@@ -1,5 +1,6 @@
 ---
 import Carousel from '@/components/ui/Carousel/Carousel.astro';
+import LazyImage from '@/components/ui/LazyImage/LazyImage.astro';
 
 import styles from './CarouselDemo.module.css';
 
@@ -15,7 +16,7 @@ const dogs = json.message.map((url: string, index: number) => ({ url, index }));
             (item: { url: string; index: number }) => (
                 <div class={styles.itemContainer}>
                     <div class={styles.index}>{item.index}</div>
-                    <img src={item.url} class={styles.image} alt="" />
+                    <LazyImage src={item.url} className={styles.image} alt="" />
                 </div>
             )
         }
