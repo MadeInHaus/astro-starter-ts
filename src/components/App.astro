@@ -1,23 +1,24 @@
 ---
 // Resets, global styles
-import '@/styles/global/reset.css';
-import '@/styles/global/theme.css';
+import '@/styles/global/reset.scss';
+import '@/styles/global/theme.scss';
 
 // Global CSS variable definitions
-import '@/styles/global/grid.css';
-import '@/styles/global/colors.css';
-import '@/styles/global/animations.css';
-import '@/styles/global/misc.css';
+import '@/styles/global/grid.scss';
+import '@/styles/global/colors.scss';
+import '@/styles/global/animations.scss';
+import '@/styles/global/misc.scss';
 
 // Global text styles
-import '@/styles/global/typography.css';
+import '@/styles/global/typography.scss';
 
 import { ViewTransitions } from 'astro:transitions';
 
 import Header from '@/components/ui/Header/Header.astro';
 import ThemeInit from '@/components/ui/Theme/ThemeInit.astro';
+import GridOverlay from '@/components/ui/GridOverlay/GridOverlay.astro';
 
-import styles from './App.module.css';
+import styles from './App.module.scss';
 
 interface Props {
     title?: string;
@@ -45,5 +46,6 @@ const { title = 'HAUS Astro TS Starter' } = Astro.props;
         <div class:list={[styles.main, 'body']}>
             <slot />
         </div>
+        <GridOverlay />
     </body>
 </html>

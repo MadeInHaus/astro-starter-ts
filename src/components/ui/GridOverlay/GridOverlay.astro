@@ -1,0 +1,83 @@
+---
+import cx from 'clsx';
+
+import grid from '@/styles/modules/grid.module.scss';
+import styles from './GridOverlay.module.scss';
+---
+
+<x-grid-overlay data-root-class={styles.gridOverlay}>
+    <div class:list={[styles.gridOverlay, grid.container]}>
+        {Array.from({ length: 12 }).map((_, i) => {
+            const columnClass = cx(styles.col, styles[`col${i + 1}`]);
+            return <div class={columnClass} />;
+        })}
+    </div>
+</x-grid-overlay>
+
+<script>
+    class GridOverlay extends HTMLElement {
+        constructor() {
+            super();
+        }
+
+        connectedCallback() {
+            document.addEventListener('keypress', this.handleKey);
+        }
+
+        disconnectedCallback() {
+            document.removeEventListener('keypress', this.handleKey);
+        }
+
+        private handleKey = (event: KeyboardEvent) => {
+            const isProduction = false;
+            // const isProduction = process.env.NODE_ENV === 'production';
+            const target = event.target as HTMLElement;
+            if (!isProduction && target?.nodeName?.toLowerCase() !== 'input' && event.key === 'g') {
+                const el = this.querySelector(':scope > div'); // TODO
+                el?.classList.toggle('visible');
+            }
+        };
+    }
+
+    customElements.define('x-grid-overlay', GridOverlay);
+
+</script>
+
+<!--
+const GridOverlay = () => {
+    const [visible, setVisible] = React.useState(false);
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    React.useEffect(() => {
+        const handleKey = (event: KeyboardEvent) => {
+            const target = event.target as HTMLElement;
+            if (!isProduction && target?.nodeName?.toLowerCase() !== 'input' && event.key === 'g') {
+                setVisible(!visible);
+            }
+        };
+        document.addEventListener('keypress', handleKey);
+        return () => document.removeEventListener('keypress', handleKey);
+    }, [visible, isProduction]);
+
+    if (isProduction) {
+        return null;
+    }
+
+    const className = cx(styles.gridOverlay, grid.container, {
+        [styles.visible]: visible,
+    });
+
+    return (
+        <Portal selector="#__gridoverlay_portal__">
+            <div className={className}>
+                {Array.from({ length: 12 }).map((_, i) => {
+                    const columnClass = cx(styles.col, styles[`col${i + 1}`]);
+                    return <div key={i} className={columnClass} />;
+                })}
+            </div>
+        </Portal>
+    );
+};
+
+export default GridOverlay;
+-->
