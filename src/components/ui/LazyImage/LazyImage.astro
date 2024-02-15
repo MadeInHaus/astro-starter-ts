@@ -53,5 +53,7 @@ const { src, alt, className } = Astro.props;
         };
     }
 
-    customElements.define('x-lazy-image', LazyImage);
+    if (!customElements.get('x-lazy-image')) {
+        customElements.define('x-lazy-image', LazyImage);
+    }
 </script>

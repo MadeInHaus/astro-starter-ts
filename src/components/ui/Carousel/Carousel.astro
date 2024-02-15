@@ -819,5 +819,7 @@ const renderedItems: string[] = Astro.slots.has('default')
         };
     }
 
-    customElements.define('x-carousel', Carousel);
+    if (!customElements.get('x-carousel')) {
+        customElements.define('x-carousel', Carousel);
+    }
 </script>

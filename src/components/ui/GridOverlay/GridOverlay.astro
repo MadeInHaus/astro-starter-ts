@@ -41,5 +41,7 @@ import styles from './GridOverlay.module.scss';
         };
     }
 
-    customElements.define('x-grid-overlay', GridOverlay);
+    if (!customElements.get('x-grid-overlay')) {
+        customElements.define('x-grid-overlay', GridOverlay);
+    }
 </script>
