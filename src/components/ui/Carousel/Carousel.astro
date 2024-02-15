@@ -68,11 +68,11 @@ const renderedItems: string[] = Astro.slots.has('default')
         private itemWidths: Map<number, number> = new Map();
         private itemOffsets: Map<number, number> = new Map();
         private visibleItems: Set<number> = new Set();
-        private snapPos = 0;
+        // private snapPos = 0;
         private snapPosStart = 0;
-        private snapPosEnd = 0;
+        // private snapPosEnd = 0;
         private autoScroll = 0;
-        private activeItemIndex = 0;
+        // private activeItemIndex = 0;
         private activeItemIndexInternal = 0;
         private offset = 0;
 
@@ -136,9 +136,9 @@ const renderedItems: string[] = Astro.slots.has('default')
             const values = getCSSValues(this.container);
             this.gap = values.gap;
             this.itemWidth = values.width;
-            this.snapPos = values.snap;
+            // this.snapPos = values.snap;
             this.snapPosStart = values.snapStart;
-            this.snapPosEnd = values.snapEnd;
+            // this.snapPosEnd = values.snapEnd;
             this.disabled = values.disabled;
             if (Math.abs(this.autoScroll) !== Math.abs(values.autoScroll)) {
                 this.autoScroll = values.autoScroll;
@@ -229,19 +229,19 @@ const renderedItems: string[] = Astro.slots.has('default')
             }
         };
 
-        private getClosestDistance = (index: number): number => {
-            const totalItems = this.items.length;
-            const activeIndex = this.activeItemIndexInternal;
-            const i1 = activeIndex > index ? index + totalItems - activeIndex : index - activeIndex;
-            const i2 = activeIndex > index ? index - activeIndex : index - totalItems - activeIndex;
-            const iDelta = Math.abs(i1) < Math.abs(i2) ? i1 : i2;
-            const iDeltaSign = sign(iDelta);
-            let distance = 0;
-            for (let i = 0; Math.abs(i) < Math.abs(iDelta); i += iDeltaSign) {
-                distance += this.getDistanceToNeighbor(activeIndex + i, -iDeltaSign);
-            }
-            return distance;
-        };
+        // private getClosestDistance = (index: number): number => {
+        //     const totalItems = this.items.length;
+        //     const activeIndex = this.activeItemIndexInternal;
+        //     const i1 = activeIndex > index ? index + totalItems - activeIndex : index - activeIndex;
+        //     const i2 = activeIndex > index ? index - activeIndex : index - totalItems - activeIndex;
+        //     const iDelta = Math.abs(i1) < Math.abs(i2) ? i1 : i2;
+        //     const iDeltaSign = sign(iDelta);
+        //     let distance = 0;
+        //     for (let i = 0; Math.abs(i) < Math.abs(iDelta); i += iDeltaSign) {
+        //         distance += this.getDistanceToNeighbor(activeIndex + i, -iDeltaSign);
+        //     }
+        //     return distance;
+        // };
 
         private findSnapDistance = (distance: number): SnapDistanceResult => {
             let index = this.activeItemIndexInternal;
