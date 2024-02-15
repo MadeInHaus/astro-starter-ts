@@ -1,0 +1,21 @@
+:where(.root:not(.disabled)) {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    overflow: hidden;
+    touch-action: pan-y;
+}
+
+:where(.root:not(.disabled) > .item) {
+    grid-area: 1 / -1;
+    width: fit-content;
+    will-change: transform;
+    transform: translate3d(-200%, 0, 0);
+    user-select: none;
+    list-style: none;
+
+    img {
+        pointer-events: none;
+    }
+}

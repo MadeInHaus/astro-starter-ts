@@ -1,0 +1,818 @@
+---
+import type { HTMLTag, Polymorphic } from 'astro/types';
+import type { CarouselOptions, CarouselProps } from './types';
+
+import cx from 'clsx';
+
+import CarouselItem from './CarouselItem.astro';
+
+import styles from './Carousel.module.css';
+
+type Props<Tag extends HTMLTag> = Polymorphic<{ as: Tag; itemAs?: Tag }> &
+    CarouselOptions &
+    CarouselProps;
+
+const { as: Tag = 'ul', itemAs = 'li', items, className, itemClassName, ...options } = Astro.props;
+
+const renderedItems: string[] = Astro.slots.has('default')
+    ? await Promise.all(items.map((item: any) => Astro.slots.render('default', [item])))
+    : [];
+---
+
+<x-carousel
+    data-options={JSON.stringify({ ...options })}
+    data-props={JSON.stringify({ as: Tag, itemAs })}
+>
+    <Tag class={cx(styles.root, className)}>
+        {
+            renderedItems.map(renderedItem => (
+                <CarouselItem as={itemAs} className={cx(styles.item, itemClassName)}>
+                    <Fragment set:html={renderedItem} />
+                </CarouselItem>
+            ))
+        }
+    </Tag>
+</x-carousel>
+
+<script>
+    import type { CarouselOptions } from './types';
+    import type { EasingFunction } from '@madeinhaus/utils';
+    import { modulo, last, easings, sign } from '@madeinhaus/utils'; // TODO: Replace last with at(-1)
+    import { getCSSValues, hermite } from './utils';
+
+    type SnapDistanceResult = { index: number; distance: number };
+    type ItemPositionResult = { x1: number; x2: number };
+    type DragStartValue = { t: number; x: number };
+    type DragRegisterValue = { t: number; x: number; dt: number; dx: number };
+    type WheelDataValue = { t: number; d: number; dt?: number };
+
+    class Carousel extends HTMLElement {
+        private align: NonNullable<CarouselOptions['align']>;
+        private damping: NonNullable<CarouselOptions['damping']>;
+        private disableSnap: NonNullable<CarouselOptions['disableSnap']>;
+        private enableVerticalScroll: NonNullable<CarouselOptions['enableVerticalScroll']>;
+        private enableNavigationGestures: NonNullable<CarouselOptions['enableNavigationGestures']>;
+
+        private items: HTMLElement[];
+        private container: HTMLElement;
+        private containerWidth = 0;
+        private resizeObserver?: ResizeObserver;
+
+        private gap = 0;
+        private itemWidth: number = 0;
+        private itemWidths: Map<number, number> = new Map();
+        private itemOffsets: Map<number, number> = new Map();
+        private visibleItems: Set<number> = new Set();
+        private snapPos = 0;
+        private snapPosStart = 0;
+        private snapPosEnd = 0;
+        private autoScroll = 0;
+        private activeItemIndex = 0;
+        private activeItemIndexInternal = 0;
+        private offset = 0;
+
+        private dragStart: DragStartValue = { t: 0, x: 0 };
+        private dragRegister: DragRegisterValue[] = [];
+        private dragScrollLock = false;
+        private dragPreventClick = false;
+
+        private rafAutoScroll = 0;
+        private rafThrow = 0;
+        private rafEased = 0;
+
+        private wheelDisabled = false;
+        private wheelInertia = false;
+        private wheelData: WheelDataValue[] = [];
+        private wheelTimeout = 0;
+        private wheelDirection = 0;
+
+        constructor() {
+            super();
+            const options = JSON.parse(this.dataset.options ?? '{}') as CarouselOptions;
+            this.align = options.align ?? 'start';
+            this.damping = options.damping ?? 200;
+            this.disableSnap = options.disableSnap ?? false;
+            this.enableVerticalScroll = options.enableVerticalScroll ?? false;
+            this.enableNavigationGestures = options.enableNavigationGestures ?? false;
+
+            const props = JSON.parse(this.dataset.props ?? '{}') as { as: string; itemAs: string };
+            const as = props.as ?? 'ul';
+            const itemAs = props.itemAs ?? 'li';
+            this.container = this.querySelector(`:scope > ${as}`)!;
+            this.items = Array.from(this.querySelectorAll(`:scope > ${as} > ${itemAs}`));
+        }
+
+        connectedCallback() {
+            this.resizeObserver = new ResizeObserver(() => this.refresh());
+            this.resizeObserver.observe(this.container);
+        }
+
+        disconnectedCallback() {
+            this.resizeObserver?.unobserve(this.container);
+        }
+
+        private set disabled(value: boolean) {
+            this.container.classList.toggle('disabled', value);
+            if (value) {
+                this.container.removeEventListener('click', this.handleClick);
+                this.container.removeEventListener('pointerdown', this.handlePointerDown);
+                this.container.removeEventListener('wheel', this.handleWheel);
+            } else {
+                this.container.addEventListener('click', this.handleClick);
+                this.container.addEventListener('pointerdown', this.handlePointerDown);
+                this.container.addEventListener('wheel', this.handleWheel);
+            }
+        }
+        private get disabled() {
+            return this.container.classList.contains('disabled');
+        }
+
+        private refresh = () => {
+            const values = getCSSValues(this.container);
+            this.gap = values.gap;
+            this.itemWidth = values.width;
+            this.snapPos = values.snap;
+            this.snapPosStart = values.snapStart;
+            this.snapPosEnd = values.snapEnd;
+            this.disabled = values.disabled;
+            if (Math.abs(this.autoScroll) !== Math.abs(values.autoScroll)) {
+                this.autoScroll = values.autoScroll;
+            }
+            if (this.disabled) {
+                this.stopAllAnimations();
+                this.removePointerEvents();
+                this.container.childNodes.forEach(node => {
+                    (node as HTMLElement).style.transform = '';
+                });
+                return;
+            }
+            this.containerWidth = this.container.getBoundingClientRect().width;
+            this.calculateItemWidths();
+            this.calculateItemOffsets();
+            try {
+                this.positionItems();
+            } catch (e) {
+                console.error('boom');
+                throw e;
+            }
+            // Start or stop auto-scroll animation
+            if (this.autoScroll !== 0) {
+                this.animateAutoScroll();
+            } else {
+                this.stopAutoScrollAnimation();
+            }
+        };
+
+        private updateActiveItemIndex = (index: number) => {
+            this.activeItemIndexInternal = index;
+            this.offset = 0;
+            this.calculateItemOffsets();
+        };
+
+        private calculateItemWidths = () => {
+            this.itemWidths.clear();
+            this.container.childNodes.forEach((node, index) => {
+                this.itemWidths.set(index, (node as HTMLElement).offsetWidth);
+            });
+        };
+
+        private calculateItemOffsets = () => {
+            const totalItems = this.items.length;
+            const offsets = new Map<number, number>();
+            const iActive = this.activeItemIndexInternal;
+            if (this.itemWidth !== 0) {
+                for (let i = 0; i < totalItems; i++) {
+                    offsets.set(i, (iActive - i) * (this.itemWidth + this.gap));
+                }
+            } else {
+                offsets.set(iActive, 0); // Offset of activeItem is by definition 0
+                const maxDist = Math.max(iActive, totalItems - iActive);
+                for (let i = 1; i < maxDist; i++) {
+                    const iLeft = iActive - i;
+                    const iRight = iActive + i;
+                    if (iLeft >= 0) {
+                        const iLeft0 = iLeft + 1;
+                        const iLeft0Offset = offsets.get(iLeft0) ?? 0;
+                        const neighborOffset = this.getDistanceToNeighbor(iLeft0, 1);
+                        const offset = iLeft0Offset + neighborOffset;
+                        offsets.set(iLeft, offset);
+                    }
+                    if (iRight < totalItems) {
+                        const iRight0 = iRight - 1;
+                        const iRight0Offset = offsets.get(iRight0) ?? 0;
+                        const neighborOffset = this.getDistanceToNeighbor(iRight0, -1);
+                        const offset = iRight0Offset + neighborOffset;
+                        offsets.set(iRight, offset);
+                    }
+                }
+            }
+            this.itemOffsets = offsets;
+        };
+
+        private getDistanceToNeighbor = (i: number, dir: number) => {
+            const totalItems = this.items.length;
+            const index = modulo(i, totalItems);
+            if (this.align === 'center') {
+                const indexNeighbor = modulo(i - dir, totalItems);
+                const currHalf = this.getItemWidth(index) / 2;
+                const nextHalf = this.getItemWidth(indexNeighbor) / 2;
+                return dir * (this.gap + currHalf + nextHalf);
+            } else {
+                const indexNeighbor = modulo(i - Math.max(dir, 0), totalItems);
+                const width = this.getItemWidth(indexNeighbor);
+                return dir * (this.gap + width);
+            }
+        };
+
+        private getClosestDistance = (index: number): number => {
+            const totalItems = this.items.length;
+            const activeIndex = this.activeItemIndexInternal;
+            const i1 = activeIndex > index ? index + totalItems - activeIndex : index - activeIndex;
+            const i2 = activeIndex > index ? index - activeIndex : index - totalItems - activeIndex;
+            const iDelta = Math.abs(i1) < Math.abs(i2) ? i1 : i2;
+            const iDeltaSign = sign(iDelta);
+            let distance = 0;
+            for (let i = 0; Math.abs(i) < Math.abs(iDelta); i += iDeltaSign) {
+                distance += this.getDistanceToNeighbor(activeIndex + i, -iDeltaSign);
+            }
+            return distance;
+        };
+
+        private findSnapDistance = (distance: number): SnapDistanceResult => {
+            let index = this.activeItemIndexInternal;
+            let offsetTarget = this.offset + distance;
+            if (offsetTarget !== 0) {
+                // Find the best offset (that is closest to offsetTarget)
+                let offsetCurr = 0;
+                let offsetDelta;
+                let bestOffset = 0;
+                let bestIndex = index;
+                let bestDiff = Math.abs(offsetTarget);
+                let failSafeCounter = 0;
+                const dir = sign(offsetTarget);
+                do {
+                    const distToNeighbor = this.getDistanceToNeighbor(index, dir);
+                    index -= dir;
+                    offsetCurr += distToNeighbor;
+                    offsetDelta = offsetTarget - offsetCurr;
+                    if (bestDiff > Math.abs(offsetDelta)) {
+                        bestDiff = Math.abs(offsetDelta);
+                        bestOffset = offsetCurr;
+                        bestIndex = index;
+                    }
+                    if (failSafeCounter++ >= 50000) {
+                        console.log('[findSnapDistance] fail safe triggered', {
+                            index,
+                            distance,
+                            dir,
+                            offsetCurr,
+                            offsetDelta,
+                            offsetTarget,
+                            bestDiff,
+                            bestOffset,
+                            bestIndex,
+                            offsetInitial: this.offset,
+                            indexInitial: this.activeItemIndexInternal,
+                        });
+                        console.trace();
+                        break;
+                    }
+                } while (offsetDelta * dir > 0);
+                return {
+                    index: modulo(bestIndex, this.items.length),
+                    distance: bestOffset - this.offset,
+                };
+            }
+            return {
+                index,
+                distance: -this.offset,
+            };
+        };
+
+        private getItemWidth = (index: number): number => {
+            return this.itemWidths.get(index) ?? 0;
+        };
+
+        private getItemOffset = (index: number): number => {
+            return this.itemOffsets.get(index) ?? 0;
+        };
+
+        private positionItems = () => {
+            if (!this.container) return;
+            const visibleItemsPrev = new Set(this.visibleItems);
+            this.visibleItems = new Set();
+            const index = this.activeItemIndexInternal;
+            const { x1, x2 } = this.getItemPosition(index);
+            this.position(index, x1, x2);
+            this.positionRight(modulo(index + 1, this.items.length), x2 + this.gap);
+            this.positionLeft(modulo(index - 1, this.items.length), x1 - this.gap);
+            visibleItemsPrev.forEach(index => {
+                if (!this.visibleItems.has(index)) {
+                    const node = this.container.childNodes[index] as HTMLElement;
+                    if (node) {
+                        node.style.transform = ``;
+                    }
+                }
+            });
+        };
+
+        private position = (index: number, x1: number, x2: number) => {
+            const isVisible = x1 < this.containerWidth && x2 > 0;
+            if (isVisible) {
+                if (this.visibleItems.has(index)) {
+                    throw new Error();
+                } else {
+                    this.visibleItems.add(index);
+                    const node = this.container.childNodes[index] as HTMLElement;
+                    if (node) {
+                        node.style.transform = `translate3d(${x1}px, 0, 0)`;
+                    }
+                }
+            }
+        };
+
+        private positionRight = (index: number, x1: number) => {
+            let failSafeCounter = 0;
+            while (x1 < this.containerWidth) {
+                const width = this.getItemWidth(index);
+                const x2 = x1 + width;
+                this.position(index, x1, x2);
+                index = modulo(index + 1, this.items.length);
+                x1 = x2 + this.gap;
+                if (failSafeCounter++ >= 50000) {
+                    console.log('[positionRight] fail safe triggered', {
+                        index,
+                        x1,
+                        x2,
+                    });
+                    break;
+                }
+            }
+        };
+
+        private positionLeft = (index: number, x2: number) => {
+            let failSafeCounter = 0;
+            while (x2 > 0) {
+                const width = this.getItemWidth(index);
+                const x1 = x2 - width;
+                this.position(index, x1, x2);
+                index = modulo(index - 1, this.items.length);
+                x2 = x1 - this.gap;
+                if (failSafeCounter++ >= 50000) {
+                    console.log('[positionLeft] fail safe triggered', {
+                        index,
+                        x1,
+                        x2,
+                    });
+                    break;
+                }
+            }
+        };
+
+        private getItemPosition = (index: number): ItemPositionResult => {
+            let x1, x2;
+            const itemWidth = this.getItemWidth(index);
+            const itemOffset = this.getItemOffset(index);
+            const x = this.offset + this.snapPosStart - itemOffset;
+            if (this.align === 'center') {
+                x1 = x - itemWidth / 2;
+                x2 = x + itemWidth / 2;
+            } else {
+                x1 = x;
+                x2 = x + itemWidth;
+            }
+            return { x1, x2 };
+        };
+
+        /////////////////////////////////////////////////////////////////////////////
+        //// POINTER EVENTS, DRAGGING, THROWING
+        /////////////////////////////////////////////////////////////////////////////
+
+        private addPointerEvents = () => {
+            window.addEventListener('pointerup', this.handlePointerUp);
+            window.addEventListener('pointercancel', this.handlePointerCancel);
+            window.addEventListener('pointermove', this.handlePointerMove);
+            const el = this.container;
+            if (el) {
+                el.addEventListener('touchstart', this.handleTouchStart);
+                el.addEventListener('touchmove', this.handleTouchMove);
+            }
+        };
+
+        private removePointerEvents = () => {
+            window.removeEventListener('pointerup', this.handlePointerUp);
+            window.removeEventListener('pointercancel', this.handlePointerCancel);
+            window.removeEventListener('pointermove', this.handlePointerMove);
+            const el = this.container;
+            if (el) {
+                el.removeEventListener('touchstart', this.handleTouchStart);
+                el.removeEventListener('touchmove', this.handleTouchMove);
+            }
+        };
+
+        private handlePointerDown = (event: PointerEvent) => {
+            if (!event.isPrimary) return;
+            if (event.pointerType === 'mouse' && event.button !== 0) return;
+            this.stopAllAnimations();
+            this.addPointerEvents();
+            this.dragStart = { t: performance.now(), x: event.screenX };
+            this.dragRegister = [];
+            this.dragScrollLock = false;
+            this.dragPreventClick = false;
+            // TODO
+            // if (onPress) onPress(event);
+        };
+
+        private handlePointerUp = (event: PointerEvent) => {
+            if (!event.isPrimary) return;
+            this.dragEnd(event);
+        };
+
+        private handlePointerCancel = (event: PointerEvent) => {
+            if (!event.isPrimary) return;
+            this.dragEnd(event);
+        };
+
+        private handlePointerMove = (event: PointerEvent) => {
+            if (!event.isPrimary) return;
+            if (!this.dragScrollLock) {
+                // Dragged horizontally for at least 5px: This is a legit swipe.
+                // Prevent-default touchmoves to stop browser from taking over.
+                const distTotal = Math.abs(event.screenX - this.dragStart.x);
+                const isDrag = distTotal >= 5;
+                if (isDrag) {
+                    this.dragScrollLock = true;
+                    // TODO
+                    // if (onDrag) onDrag();
+                }
+            }
+            if (this.dragScrollLock) {
+                // This needs to be set, otherwise we won't get pointer up/cancel
+                // events when the mouse leaves the window on drag
+                this.container.setPointerCapture(event.pointerId);
+            }
+            // Determine current position and velocity:
+            const prev = last(this.dragRegister) || this.dragStart;
+            const t = performance.now();
+            const x = event.screenX;
+            const dt = t - prev.t;
+            const dx = x - prev.x;
+            if (dx !== 0) {
+                this.dragRegister.push({ t, x, dt, dx });
+                this.offset += dx;
+                this.positionItems();
+            }
+        };
+
+        private handleTouchStart = (event: TouchEvent) => {
+            if (!this.enableNavigationGestures) {
+                const { pageX } = event.touches[0];
+                if (pageX < 30 || pageX > window.innerWidth - 30) {
+                    // Prevent navigation gestures from edges of screen
+                    event.preventDefault();
+                }
+            }
+        };
+
+        private handleTouchMove = (event: TouchEvent) => {
+            if (this.dragScrollLock) {
+                // Prevent-default touchmove events:
+                // - Browser won't scroll and take over the pointer
+                // - Pointer events continue to be dispatched to us
+                if (event.cancelable) event.preventDefault();
+            }
+        };
+
+        private handleClick = (event: MouseEvent) => {
+            if (this.dragPreventClick && !this.disabled) {
+                // Prevent-default click events:
+                // After dragging, we don't want a dangling click to go through
+                event.stopPropagation();
+                event.preventDefault();
+            }
+        };
+
+        private dragEnd = (event: PointerEvent) => {
+            // Clean up:
+            this.dragScrollLock = false;
+            this.container.releasePointerCapture(event.pointerId);
+            this.removePointerEvents();
+            // Discard first sample
+            this.dragRegister.shift();
+            // Calculate total distance the pointer moved
+            const distance = this.dragRegister.reduce((a, sample) => a + Math.abs(sample.dx), 0);
+            // Calculate age of last pointer move
+            const currentTime = performance.now();
+            const lastTime = last(this.dragRegister)?.t ?? currentTime;
+            const dt = currentTime - lastTime;
+            if (distance < 1 && dt >= 50) {
+                // This was a long click:
+                // Block clicks, snap to nearest item and bail out.
+                this.dragPreventClick = true;
+                this.dragThrow(0, 0);
+                return;
+            }
+            // Require at least 2 samples (3 with the discarded first sample)
+            // and at least 1px of total pointer movement (to weed out clicks)
+            if (this.dragRegister.length >= 2 && distance >= 1) {
+                // Block clicks
+                this.dragPreventClick = true;
+                // Latest sample must be less than 50ms old
+                if (dt < 50) {
+                    // Determine velocity v0:
+                    // Average the last max 5 sample velocities.
+                    // Latest samples are applied a smaller weight than older ones
+                    // because velocity in the last one or two frames tends to
+                    // decrease significantly
+                    const relevantSamples = this.dragRegister.slice(-5).reverse();
+                    let v0 = 0;
+                    let weightSum = 0;
+                    relevantSamples.forEach((sample, i) => {
+                        v0 += ((i + 1) * sample.dx) / sample.dt;
+                        weightSum += i + 1;
+                    });
+                    v0 /= weightSum;
+                    this.dragThrow(v0, lastTime);
+                    return;
+                }
+            }
+            // Snap to nearest item
+            this.dragThrow(0, 0);
+        };
+
+        private dragThrow = (v0: number, t0: number) => {
+            if (Math.abs(v0) > 0.1 && this.damping > 0) {
+                // Throw it!
+                // console.log(`[dragThrow] calling animateThrow`, { v0, t0 });
+                this.animateThrow(v0, t0);
+            } else {
+                // This was not a throw.
+                if (this.shouldStartAutoScroll()) {
+                    // Auto scroll
+                    this.animateAutoScroll();
+                } else if (!this.disableSnap) {
+                    // Snap back
+                    let { distance, index } = this.findSnapDistance(0);
+                    // console.log(`[dragThrow] snap back `, { index, distance });
+                    this.animateEased(this.offset + distance, index);
+                }
+            }
+        };
+
+        /////////////////////////////////////////////////////////////////////////////
+        //// ANIMATIONS
+        /////////////////////////////////////////////////////////////////////////////
+
+        private stopAutoScrollAnimation = () => {
+            window.cancelAnimationFrame(this.rafAutoScroll);
+            this.rafAutoScroll = 0;
+        };
+
+        private stopThrowAnimation = () => {
+            cancelAnimationFrame(this.rafThrow);
+            this.rafThrow = 0;
+        };
+
+        private stopEasedAnimation = () => {
+            cancelAnimationFrame(this.rafEased);
+            this.rafEased = 0;
+        };
+
+        private stopAllAnimations = () => {
+            this.stopAutoScrollAnimation();
+            this.stopThrowAnimation();
+            this.stopEasedAnimation();
+        };
+
+        private shouldStartAutoScroll = () => {
+            return this.autoScroll !== 0 && !this.disabled && !this.rafAutoScroll;
+        };
+
+        private animateAutoScroll = (v0: number = 0, tweenDuration: number = 500) => {
+            if (!this.shouldStartAutoScroll()) {
+                return;
+            }
+            const startTime = performance.now();
+            const endTime = startTime + tweenDuration;
+            let lastTime = startTime;
+            const loop = () => {
+                const currentTime = performance.now();
+                const v = hermite(currentTime, v0, this.autoScroll, startTime, endTime);
+                this.offset += (currentTime - lastTime) * v;
+                this.positionItems();
+                lastTime = currentTime;
+                this.rafAutoScroll = requestAnimationFrame(loop);
+            };
+            this.rafAutoScroll = requestAnimationFrame(loop);
+        };
+
+        private animateEased = (
+            targetOffset: number,
+            targetIndex: number,
+            options: { easeFn?: EasingFunction; duration?: number } = {}
+        ) => {
+            const { easeFn = easings.easeInOutCubic, duration = 700 } = options;
+            // TODO
+            // if (snap && onSnap) onSnap(targetIndex);
+            if (duration === 0) {
+                this.updateActiveItemIndex(targetIndex);
+                this.positionItems();
+                return;
+            }
+            const startTime = performance.now();
+            const startOffset = this.offset;
+            const loop = () => {
+                const currentTime = performance.now();
+                const elapsedTime = currentTime - startTime;
+                const t = elapsedTime / duration;
+                if (t < 1) {
+                    const ease = easeFn(t);
+                    const dist = targetOffset - startOffset;
+                    this.offset = startOffset + dist * ease;
+                    this.rafEased = requestAnimationFrame(loop);
+                } else {
+                    this.rafEased = 0;
+                    this.updateActiveItemIndex(targetIndex);
+                }
+                this.positionItems();
+            };
+            this.rafEased = requestAnimationFrame(loop);
+        };
+
+        private animateThrow = (v0: number, t0: number) => {
+            const startPos = this.offset;
+
+            // See https://www.desmos.com/calculator/uejv80whgp for the math
+            let index: number;
+            let velocity = v0;
+            let duration = -this.damping * Math.log(6 / (1000 * Math.abs(v0)));
+            let distance = v0 * this.damping * (1 - Math.exp(-duration / this.damping));
+            if (!this.disableSnap && this.autoScroll === 0) {
+                const { index: iSnap, distance: dSnap } = this.findSnapDistance(distance);
+                velocity = dSnap / (this.damping * (1 - Math.exp(-duration / this.damping)));
+                duration = -this.damping * Math.log(6 / (1000 * Math.abs(velocity)));
+                distance = dSnap;
+                index = iSnap;
+                // TODO
+                // if (onSnap) onSnap(index);
+            }
+
+            if (sign(velocity) !== sign(this.autoScroll)) {
+                // Reverse auto-scroll direction if it goes in the
+                // opposite direction of the throw.
+                this.autoScroll *= -1;
+            }
+
+            const loop = () => {
+                const currentTime = performance.now();
+                const elapsedTime = currentTime - t0;
+                const exp = Math.exp(-elapsedTime / this.damping);
+                const v = velocity * exp;
+                if (this.shouldStartAutoScroll()) {
+                    // If auto-scroll is enabled, and the velocity of the
+                    // throw gets smaller than the auto-scroll velocity,
+                    // auto-scroll takes over.
+                    if (Math.abs(v) <= Math.abs(this.autoScroll)) {
+                        this.rafThrow = 0;
+                        this.animateAutoScroll(v, 1000);
+                        return;
+                    }
+                }
+                // Total distance traveled until now
+                const d = velocity * this.damping * (1 - exp);
+                // Exit condition: We're either
+                // - sufficiently near the target (normal exit)
+                // - or out of time (fail-safe)
+                const isNearTarget = Math.abs(distance - d) < 0.1;
+                const isOutOfTime = elapsedTime >= duration;
+                if (isNearTarget || isOutOfTime) {
+                    this.rafThrow = 0;
+                    if (typeof index !== 'undefined') {
+                        this.updateActiveItemIndex(index);
+                    }
+                    this.positionItems();
+                    this.animateAutoScroll();
+                } else {
+                    this.rafThrow = requestAnimationFrame(loop);
+                    this.offset = startPos + d;
+                    this.positionItems();
+                }
+            };
+            loop();
+        };
+
+        // ///////////////////////////////////////////////////////////////////////////
+        // // MOUSE WHEEL
+        // ///////////////////////////////////////////////////////////////////////////
+
+        private isInertia = (d: number): boolean => {
+            const t = performance.now();
+            if (this.wheelData.length === 0) {
+                this.wheelData = [{ t, d }];
+                this.wheelDirection = sign(d);
+            } else {
+                if (this.wheelDirection !== sign(d)) {
+                    this.wheelDirection = sign(d);
+                    this.wheelData = [{ t, d }];
+                } else {
+                    const dt = t - (last(this.wheelData)?.t ?? t);
+                    this.wheelData.push({ t, dt, d });
+                }
+            }
+            let result = false;
+            const sampleSize = 8;
+            const len = this.wheelData.length;
+            if (len > sampleSize) {
+                let signCount = 0;
+                let equalCount = 0;
+                for (let i = len - sampleSize; i < len; i++) {
+                    const dPrev = this.wheelData[i - 1].d;
+                    const dCur = this.wheelData[i].d;
+                    const dd = dCur - dPrev;
+                    if (dd === 0) {
+                        // Weed out mouse wheels which always emit the same
+                        // high delta (usually >= 100)
+                        if (Math.abs(dPrev) > 10 && Math.abs(dCur) > 10) {
+                            equalCount++;
+                        }
+                    } else if (sign(dd) === this.wheelDirection) {
+                        // When actively swiping, the signs of the first dy and
+                        // subsequent ddys tend to be the same (accelerate).
+                        // When inertia kicks in, the signs differ (decelerate).
+                        signCount++;
+                    }
+                }
+                // Report inertia, when out of the latest [sampleSize] events
+                // - less than [sampleSize / 2] accelerated (most decelerated)
+                // - all showed some de-/acceleration for higher deltas
+                result = signCount < Math.round(sampleSize / 2) && equalCount !== sampleSize;
+            }
+            return result;
+        };
+
+        private onWheelTimeout = () => {
+            this.wheelInertia = false;
+            this.wheelData = [];
+        };
+
+        private handleWheel = (event: WheelEvent) => {
+            if (this.wheelDisabled || this.disabled) return;
+            // https://github.com/facebook/react/blob/master/packages/react-dom/src/events/SyntheticEvent.js#L556-L559
+            // > Browsers without "deltaMode" is reporting in raw wheel delta where
+            // > one notch on the scroll is always +/- 120, roughly equivalent to
+            // > pixels. A good approximation of DOM_DELTA_LINE (1) is 5% of
+            // > viewport size or ~40 pixels, for DOM_DELTA_SCREEN (2) it is 87.5%
+            // > of viewport size.
+            let multiplicator = 1;
+            if (event.deltaMode === 1) {
+                multiplicator = window.innerHeight * 0.05;
+            } else if (event.deltaMode === 2) {
+                multiplicator = window.innerHeight * 0.875;
+            }
+            const dx = event.deltaX * multiplicator;
+            const dy = event.deltaY * multiplicator;
+            // Calculate angle of the swipe
+            // -180 ... -135: left (upper 8th)
+            // -135 ... -45: up
+            // -45 ... 0: right (upper 8th)
+            // 0 ... 45: right (lower 8th)
+            // 45 ... 135: down
+            // 135 .. 180: left (lower 8th)
+            const a = (Math.atan2(dy, dx) * 180) / Math.PI;
+            // Go forwards if swiped to the right or down
+            // Go backwards if swiped to the left or up
+            const forwards = a >= -45 && a <= 135;
+            // The distance swiped since last event, with correct sign
+            const d = Math.hypot(dx, dy) * (forwards ? 1 : -1);
+            // Restrict to horizontal axis (if vertical scroll is disabled)
+            const horiz = !((a >= -135 && a <= -45) || (a >= 45 && a <= 135));
+            if (horiz || this.enableVerticalScroll) {
+                event.preventDefault();
+                if (!this.isInertia(d)) {
+                    // Swipe
+                    this.stopAllAnimations();
+                    this.offset -= d;
+                    this.positionItems();
+                    this.wheelInertia = false;
+                } else if (!this.wheelInertia) {
+                    // Inertia
+                    const latestData = last(this.wheelData);
+                    if (latestData?.dt) {
+                        const v0 = -latestData.d / latestData.dt;
+                        if (v0 !== 0) {
+                            // console.log(`[handleWheel] calling animateThrow`, {
+                            //     v0,
+                            // });
+                            this.animateThrow(v0, performance.now());
+                            this.wheelInertia = true;
+                        }
+                    }
+                }
+            }
+            clearTimeout(this.wheelTimeout);
+            this.wheelTimeout = window.setTimeout(this.onWheelTimeout, 100);
+        };
+    }
+
+    customElements.define('x-carousel', Carousel);
+</script>
