@@ -14,5 +14,5 @@ export function setTheme(theme: ThemeValue) {
 }
 
 export function getTheme() {
-    return window.localStorage.getItem('theme') as ThemeValue ?? 'auto';
+    return (window.localStorage.getItem('theme') as ThemeValue) ?? 'auto';
 }

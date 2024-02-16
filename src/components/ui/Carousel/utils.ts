@@ -1,4 +1,4 @@
-import { clamp } from "@madeinhaus/utils";
+import { clamp } from '@madeinhaus/utils';
 
 export type CSSValues = {
     gap: number;
