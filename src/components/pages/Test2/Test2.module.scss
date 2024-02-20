@@ -2,17 +2,33 @@
 
 .root {
     position: relative;
+    width: 100%;
     height: calc(100vh - var(--header-height));
 }
 
-.headline {
+.main {
     position: absolute;
     top: 2rem;
+    left: var(--grid-margin);
     width: 100%;
-    text-align: center;
-    font-size: 4rem;
-    font-weight: 700;
-    color: red;
+
+    h1,
+    p {
+        width: min(90%, 50rem);
+    }
+
+    h1 {
+        font-size: 5rem;
+        font-weight: 700;
+        color: orange;
+    }
+
+    p {
+        width: min(80%, 40rem);
+        font-size: 1.8rem;
+        font-weight: 400;
+        color: #888;
+    }
 }
 
 .content {

@@ -5,7 +5,13 @@ import styles from './Test2.module.scss';
 ---
 
 <div class={styles.root}>
-    <h1 class={styles.headline}>Test 2</h1>
+    <main class={styles.main}>
+        <h1 class={styles.headline}>Test 2</h1>
+        <p>
+            View in Chrome.
+            <a href="https://github.com/MadeInHaus/astro-starter-ts">Sources</a>.
+        </p>
+    </main>
     <div class={styles.content} transition:persist transition:animate="none">
         <Spinner href="/test1" label="Go to Test 1" />
     </div>

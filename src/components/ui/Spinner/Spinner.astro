@@ -1,27 +1,21 @@
 ---
 import styles from './Spinner.module.scss';
-
-interface Props {
-    href: string;
-    label: string;
-}
-
-const { href, label } = Astro.props;
 ---
 
 <my-spinner>
-    <a class={styles.spinner} href={href}>{label}</a>
+    <button class={styles.spinner}>Click me</button>
 </my-spinner>
 
 <script>
+    import { navigate } from 'astro:transitions/client';
+
     class Spinner extends HTMLElement {
-        constructor() {
-            super();
+        connectedCallback() {
+            const button = this.querySelector('button') as HTMLButtonElement;
+            button.addEventListener('click', () => {
+                navigate(new URL(window.location.href).pathname === '/test1' ? '/test2' : '/test1');
+            });
         }
-
-        connectedCallback() {}
-
-        disconnectedCallback() {}
     }
 
     if (!customElements.get('my-spinner')) {
