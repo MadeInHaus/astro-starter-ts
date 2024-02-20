@@ -12,7 +12,7 @@
     "dev": "astro dev",
     "build": "astro check && astro build",
     "build:dev": "astro check && rm -rf dist && astro build",
-    "preview": "astro preview",
+    "preview": "astro preview --host",
     "start": "astro preview",
     "astro": "astro",
     "clean": "node scripts/clean.mjs",
@@ -21,7 +21,6 @@
     "prettier-fix": "prettier -w .",
     "stylelint": "stylelint \"**/*.scss\"",
     "stylelint-fix": "stylelint --fix \"**/*.scss\""
-
   },
   "dependencies": {
     "@astrojs/check": "^0.5.2",
