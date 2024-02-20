@@ -7,7 +7,6 @@ import ${name} from '@/components/pages/${name}/${name}.astro';
 <Layout>
     <${name} />
 </Layout>
-';
 `;
 };
 
