@@ -5,7 +5,8 @@ import styles from './Test1.module.scss';
 ---
 
 <div class={styles.root}>
-    <div class={styles.content} transition:persist>
+    <h1 class={styles.headline}>Test 1</h1>
+    <div class={styles.content} transition:persist transition:animate="none">
         <Spinner href="/test2" label='Go to Test 2' />
     </div>
 </div>

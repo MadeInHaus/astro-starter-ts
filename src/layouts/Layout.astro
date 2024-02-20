@@ -12,7 +12,7 @@ import '@/styles/global/misc.scss';
 // Global text styles
 import '@/styles/global/typography.scss';
 
-import { ViewTransitions } from 'astro:transitions';
+import { ViewTransitions, fade } from 'astro:transitions';
 
 import Header from '@/components/ui/Header/Header.astro';
 import ThemeInit from '@/components/ui/Theme/ThemeInit.astro';
@@ -43,7 +43,7 @@ const { title = 'HAUS Astro TS Starter' } = Astro.props;
     </head>
     <body>
         <Header />
-        <div class:list={[styles.main, 'body']} transition:animate="fade">
+        <div class:list={[styles.main, 'body']} transition:animate={fade({ duration: '1.5s' })}>
             <slot />
         </div>
         <GridOverlay />

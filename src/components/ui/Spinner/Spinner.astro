@@ -9,7 +9,7 @@ interface Props {
 const { href, label } = Astro.props;
 ---
 
-<my-spinner transition:persist>
+<my-spinner>
     <a class={styles.spinner} href={href}>{label}</a>
 </my-spinner>
 

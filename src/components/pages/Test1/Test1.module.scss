@@ -1,7 +1,18 @@
 @import '@/styles/breakpoints';
 
 .root {
+    position: relative;
     height: calc(100vh - var(--header-height));
+}
+
+.headline {
+    position: absolute;
+    top: 2rem;
+    width: 100%;
+    text-align: center;
+    font-size: 4rem;
+    font-weight: 700;
+    color: orange;
 }
 
 .content {
