@@ -1,0 +1,12 @@
+@import '@/styles/breakpoints';
+
+.root {
+    height: calc(100vh - var(--header-height));
+}
+
+.content {
+    display: grid;
+    height: 100%;
+    place-content: center;
+    text-align: center;
+}

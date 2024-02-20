@@ -1,0 +1,11 @@
+---
+import Spinner from '@/components/ui/Spinner/Spinner.astro';
+
+import styles from './Test2.module.scss';
+---
+
+<div class={styles.root}>
+    <div class={styles.content} transition:persist>
+        <Spinner href="/test1" label="Go to Test 1" />
+    </div>
+</div>

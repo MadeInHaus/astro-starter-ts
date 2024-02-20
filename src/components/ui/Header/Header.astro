@@ -3,7 +3,7 @@ import grid from '@/styles/modules/grid.module.scss';
 import styles from './Header.module.scss';
 ---
 
-<header class:list={[styles.root, 'body']}>
+<header class:list={[styles.root, 'body']} transition:persist>
     <div class:list={[styles.container, grid.container]}>
         <h1 class={styles.home}>
             <a href="/">HAUS Astro TS Starter</a>

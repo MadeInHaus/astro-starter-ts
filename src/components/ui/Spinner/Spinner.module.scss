@@ -1,0 +1,27 @@
+.spinner {
+    display: grid;
+    width: 30rem;
+    height: 30rem;
+    place-content: center;
+    animation: spin 3s linear infinite;
+    text-decoration-color: #888;
+    text-underline-offset: 0.3em;
+    border-radius: 50%;
+    border: 0.5rem solid #888;
+    transition: font-size 0.5s ease-in-out, text-decoration-color 0.5s linear;
+
+    &:hover {
+        font-size: 2em;
+        text-decoration-color: currentcolor;
+    }
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}

@@ -1,0 +1,30 @@
+---
+import styles from './Spinner.module.scss';
+
+interface Props {
+    href: string;
+    label: string;
+}
+
+const { href, label } = Astro.props;
+---
+
+<my-spinner transition:persist>
+    <a class={styles.spinner} href={href}>{label}</a>
+</my-spinner>
+
+<script>
+    class Spinner extends HTMLElement {
+        constructor() {
+            super();
+        }
+
+        connectedCallback() {}
+
+        disconnectedCallback() {}
+    }
+
+    if (!customElements.get('my-spinner')) {
+        customElements.define('my-spinner', Spinner);
+    }
+</script>
