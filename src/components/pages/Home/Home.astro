@@ -2,9 +2,9 @@
 import grid from '@/styles/modules/grid.module.scss';
 import styles from './Home.module.scss';
 
-const demoLinks = [
-    { href: '/demos/carousel', label: 'Carousel' },
-];
+const GITHUB_URL = 'https://github.com/MadeInHaus/astro-starter-ts';
+
+const demoLinks = [{ href: '/demos/carousel', label: 'Carousel' }];
 ---
 
 <div class:list={[styles.root, grid.container]}>
@@ -36,8 +36,8 @@ const demoLinks = [
         <h2 class:list={[styles.sectionHeadline, 'body']}>Source</h2>
         <ul>
             <li class={styles.link}>
-                <a href="https://github.com/MadeInHaus/astro-starter-ts">
-                    <span>https://github.com/MadeInHaus/astro-starter-ts</span>
+                <a href={GITHUB_URL}>
+                    <span>{GITHUB_URL}</span>
                 </a>
             </li>
         </ul>
