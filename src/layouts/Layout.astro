@@ -13,6 +13,7 @@ import '@/styles/global/misc.scss';
 import '@/styles/global/typography.scss';
 
 import { ViewTransitions, fade } from 'astro:transitions';
+import ReplacementSwap from 'astro-vtbot/components/ReplacementSwap.astro';
 
 import Header from '@/components/ui/Header/Header.astro';
 import ThemeInit from '@/components/ui/Theme/ThemeInit.astro';
@@ -28,7 +29,7 @@ const { title = 'HAUS Astro TS Starter' } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en" transition:animate="none">
+<html lang="en">
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -40,10 +41,11 @@ const { title = 'HAUS Astro TS Starter' } = Astro.props;
         <title>{title}</title>
         <ThemeInit />
         <ViewTransitions />
+        <ReplacementSwap />
     </head>
     <body>
         <Header />
-        <div class:list={[styles.main, 'body']} transition:animate={fade({ duration: '1s' })}>
+        <div class:list={[styles.main, 'body']} data-vtbot-replace="main">
             <slot />
         </div>
         <GridOverlay />
