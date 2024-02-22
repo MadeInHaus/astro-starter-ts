@@ -12,7 +12,7 @@ import '@/styles/global/misc.scss';
 // Global text styles
 import '@/styles/global/typography.scss';
 
-import { ViewTransitions, fade } from 'astro:transitions';
+import { ViewTransitions } from 'astro:transitions';
 import ReplacementSwap from 'astro-vtbot/components/ReplacementSwap.astro';
 
 import Header from '@/components/ui/Header/Header.astro';
@@ -41,7 +41,7 @@ const { title = 'HAUS Astro TS Starter' } = Astro.props;
         <title>{title}</title>
         <ThemeInit />
         <ViewTransitions />
-        <ReplacementSwap />
+        <ReplacementSwap rootAttributesToPreserve="data-theme, data-theme-value" />
     </head>
     <body>
         <Header />
