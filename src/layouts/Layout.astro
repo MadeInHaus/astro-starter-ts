@@ -1,16 +1,11 @@
 ---
-// Resets, global styles
-import '@/styles/global/reset.scss';
-import '@/styles/global/theme.scss';
-
-// Global CSS variable definitions
-import '@/styles/global/grid.scss';
-import '@/styles/global/colors.scss';
-import '@/styles/global/animations.scss';
-import '@/styles/global/misc.scss';
-
-// Global text styles
-import '@/styles/global/typography.scss';
+// Global styles
+import '@/styles/global/reset.css';
+import '@/styles/global/grid.css';
+import '@/styles/global/colors.css';
+import '@/styles/global/animations.css';
+import '@/styles/global/typography.css';
+import '@/styles/global/theme.css';
 
 import { ViewTransitions } from 'astro:transitions';
 import ReplacementSwap from 'astro-vtbot/components/ReplacementSwap.astro';
@@ -19,7 +14,7 @@ import Header from '@/components/ui/Header/Header.astro';
 import ThemeInit from '@/components/ui/Theme/ThemeInit.astro';
 import GridOverlay from '@/components/ui/GridOverlay/GridOverlay.astro';
 
-import styles from './Layout.module.scss';
+import styles from './Layout.module.css';
 
 interface Props {
     title?: string;

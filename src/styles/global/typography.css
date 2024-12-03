@@ -1,5 +1,3 @@
-@import '@/styles/breakpoints';
-
 .body {
     font-family: 'Helvetica', 'Arial', sans-serif;
     font-size: 1.4rem;
@@ -7,7 +5,7 @@
     letter-spacing: 0.01em;
 }
 
-@include large {
+@media (width >= 1280px) {
     .body {
         font-size: 1.6rem;
     }

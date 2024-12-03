@@ -5,12 +5,12 @@ import sh from 'shelljs';
 import path from 'path';
 import fs from 'fs';
 
-import { uiComponentAstro, uiComponentSCSS } from './templates/ui-component.mjs';
+import { uiComponentAstro, uiComponentCSS } from './templates/ui-component.mjs';
 
 import {
     pageComponentRoute,
     pageComponentAstro,
-    pageComponentSCSS,
+    pageComponentCSS,
 } from './templates/page-component.mjs';
 
 sh.config.silent = true;
@@ -21,8 +21,7 @@ const uiComponentScaffold = async () => {
             type: 'input',
             name: 'name',
             message: 'UI Component Name:',
-            validate: name =>
-                !!name.match(/^[A-Z][A-Za-z0-9]*$/) || 'Name must be in CamelCase',
+            validate: name => !!name.match(/^[A-Z][A-Za-z0-9]*$/) || 'Name must be in CamelCase',
         },
     ]);
     const { customElementName } = await inquirer.prompt([
@@ -31,7 +30,8 @@ const uiComponentScaffold = async () => {
             name: 'customElementName',
             message: 'Custom Element Name:',
             validate: name =>
-                !!name.match(/^[a-z][a-z0-9._]*-[a-z0-9._]*[a-z0-9]$/) || 'Name must be in kebab-case',
+                !!name.match(/^[a-z][a-z0-9._]*-[a-z0-9._]*[a-z0-9]$/) ||
+                'Name must be in kebab-case',
         },
     ]);
     const dir = path.resolve(process.cwd(), 'src', 'components', 'ui', name);
@@ -52,15 +52,15 @@ const uiComponentScaffold = async () => {
     sh.mkdir('-p', dir);
 
     const astro = new sh.ShellString(uiComponentAstro(name, customElementName));
-    const scss = new sh.ShellString(uiComponentSCSS());
+    const css = new sh.ShellString(uiComponentCSS());
 
     astro.to(path.resolve(dir, `${name}.astro`));
-    scss.to(path.resolve(dir, `${name}.module.scss`));
+    css.to(path.resolve(dir, `${name}.module.css`));
 
     const check = chalk.green.bold('✓');
     console.log('\nFiles written:');
     console.log(`- src/components/ui/${name}/${name}.astro ${check}`);
-    console.log(`- src/components/ui/${name}/${name}.module.scss ${check}\n`);
+    console.log(`- src/components/ui/${name}/${name}.module.css ${check}\n`);
 };
 
 const pageComponentScaffold = async () => {
@@ -124,16 +124,16 @@ const pageComponentScaffold = async () => {
     fs.writeFileSync(routePath, pageComponentRoute(name));
 
     const astro = new sh.ShellString(pageComponentAstro(name));
-    const scss = new sh.ShellString(pageComponentSCSS());
+    const css = new sh.ShellString(pageComponentCSS());
 
     astro.to(path.resolve(compDir, `${name}.astro`));
-    scss.to(path.resolve(compDir, `${name}.module.scss`));
+    css.to(path.resolve(compDir, `${name}.module.css`));
 
     const check = chalk.green.bold('✓');
     console.log('\nFiles written:');
     console.log(`- src/pages/${routeFile} ${check}`);
     console.log(`- src/components/pages/${name}/${name}.astro ${check}`);
-    console.log(`- src/components/pages/${name}/${name}.module.scss ${check}\n`);
+    console.log(`- src/components/pages/${name}/${name}.module.css ${check}\n`);
 };
 
 const run = async () => {
