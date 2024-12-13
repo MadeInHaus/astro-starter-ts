@@ -1,3 +1,5 @@
+const KEY = 'theme';
+
 export type ThemeValue = 'auto' | 'dark' | 'light';
 
 export function setTheme(theme: ThemeValue) {
@@ -5,14 +7,14 @@ export function setTheme(theme: ThemeValue) {
         const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
         document.documentElement.dataset.theme = prefersDarkScheme.matches ? 'dark' : 'light';
         document.documentElement.dataset.themeValue = 'auto';
-        window.localStorage.removeItem('theme');
+        window.localStorage.removeItem(KEY);
     } else {
         document.documentElement.dataset.theme = theme;
         document.documentElement.dataset.themeValue = theme;
-        window.localStorage.setItem('theme', theme);
+        window.localStorage.setItem(KEY, theme);
     }
 }
 
 export function getTheme() {
-    return (window.localStorage.getItem('theme') as ThemeValue) ?? 'auto';
+    return (window.localStorage.getItem(KEY) as ThemeValue) ?? 'auto';
 }

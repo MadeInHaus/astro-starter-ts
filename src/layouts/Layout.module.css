@@ -1,18 +1,16 @@
-@import '@/styles/breakpoints';
-
 .main {
     padding-top: var(--header-height);
     font-family: 'Helvetica', 'Arial', sans-serif;
     font-size: 1.4rem;
 }
 
-@include medium {
+@media (width >= 768px) {
     .main {
         font-size: 1.5rem;
     }
 }
 
-@include large {
+@media (width >= 1280px) {
     .main {
         font-size: 1.6rem;
     }

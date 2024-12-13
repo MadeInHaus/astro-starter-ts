@@ -12,8 +12,8 @@ import ${name} from '@/components/pages/${name}/${name}.astro';
 
 export const pageComponentAstro = name => {
     return `---
-import grid from '@/styles/modules/grid.module.scss';
-import styles from './${name}.module.scss';
+import grid from '@/styles/modules/grid.module.css';
+import styles from './${name}.module.css';
 ---
 
 <div class:list={[styles.root, grid.container]}>
@@ -25,20 +25,21 @@ import styles from './${name}.module.scss';
 `;
 };
 
-export const pageComponentSCSS = () => {
-    return `@import '@/styles/breakpoints';
-
-.root {
+export const pageComponentCSS = () => {
+    return `.root {
 }
 
 .header {
     grid-column: 1 / -1;
 }
 
-@include medium {
+@media (width >= 768px) {
 }
 
-@include large {
+@media (width >= 1280px) {
+}
+
+@media (width >= 1920px) {
 }
 `;
 };

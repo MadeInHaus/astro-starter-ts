@@ -1,18 +1,24 @@
 <script is:inline>
-    const key = 'theme';
-    const mq = '(prefers-color-scheme: dark)';
-    const colorScheme = window.matchMedia(mq).matches ? 'dark' : 'light';
-    const storedTheme = window.localStorage.getItem(key);
-    document.documentElement.dataset.theme = storedTheme ?? colorScheme;
-    document.documentElement.dataset.themeValue = storedTheme ?? 'auto';
-    window.matchMedia(mq).addEventListener('change', e => {
-        if (window.localStorage.getItem(key) == null) {
-            document.documentElement.dataset.theme = e.matches ? 'dark' : 'light';
+    const KEY = 'theme';
+    const MQ = '(prefers-color-scheme: dark)';
+
+    function setTheme() {
+        const storedColorScheme = window.localStorage.getItem(KEY);
+        const systemColorScheme = window.matchMedia(MQ).matches ? 'dark' : 'light';
+        document.documentElement.dataset.theme = storedColorScheme ?? systemColorScheme;
+        document.documentElement.dataset.themeValue = storedColorScheme ?? 'auto';
+    }
+
+    setTheme();
+
+    // ViewTransitions will remove the data-theme and data-theme-value attributes on the
+    // root element when swapping pages. We need to reapply the theme after swaps.
+    document.addEventListener('astro:after-swap', setTheme);
+
+    window.matchMedia(MQ).addEventListener('change', event => {
+        if (window.localStorage.getItem(KEY) == null) {
+            document.documentElement.dataset.theme = event.matches ? 'dark' : 'light';
             document.documentElement.dataset.themeValue = 'auto';
         }
-    });
-    document.addEventListener('astro:after-swap', () => {
-        document.documentElement.dataset.theme = window.localStorage.getItem(key) ?? colorScheme;
-        document.documentElement.dataset.themeValue = window.localStorage.getItem(key) ?? 'auto';
     });
 </script>

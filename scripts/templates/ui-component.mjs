@@ -1,5 +1,5 @@
 export const uiComponentAstro = (name, customElementName) => `---
-import styles from './${name}.module.scss';
+import styles from './${name}.module.css';
 
 interface Props {
     className?: string;
@@ -32,8 +32,15 @@ const { className } = Astro.props;
 </script>
 `;
 
-export const uiComponentSCSS = () => `@import '@/styles/breakpoints';
+export const uiComponentCSS = () => `.root {
+}
 
-.root {
+@media (width >= 768px) {
+}
+
+@media (width >= 1280px) {
+}
+
+@media (width >= 1920px) {
 }
 `;
