@@ -1,3 +1,5 @@
+export type CarouselDirection = 'horizontal' | 'vertical';
+
 export type CarouselProps = {
     items: any[];
     className?: string;
@@ -5,6 +7,7 @@ export type CarouselProps = {
 };
 
 export type CarouselOptions = {
+    direction?: CarouselDirection;
     align?: 'start' | 'center';
     damping?: number;
     disableSnap?: boolean;

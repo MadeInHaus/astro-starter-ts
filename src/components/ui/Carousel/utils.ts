@@ -1,4 +1,5 @@
 import { clamp } from '@madeinhaus/utils';
+import type { CarouselDirection } from './types';
 
 export type CSSValues = {
     gap: number;
@@ -10,27 +11,31 @@ export type CSSValues = {
     disabled: boolean;
 };
 
-export function getCSSValues(container: HTMLElement): CSSValues {
+export function getCSSValues(container: HTMLElement, direction: CarouselDirection): CSSValues {
     const GAP = '--carousel-gap';
     const SNAP = '--carousel-snap-position';
     const SNAPSTART = '--carousel-snap-position-start';
     const SNAPEND = '--carousel-snap-position-end';
+    const SIZE = '--carousel-item-size';
     const WIDTH = '--carousel-item-width';
     const SCROLL = '--carousel-autoscroll';
     const DISABLED = '--carousel-disabled';
     const styles = [
-        `position: relative`,
+        `width: 100%`,
         `padding-left: var(${GAP})`,
         `padding-right: var(${SNAP})`,
         `margin-left: var(${SNAPSTART})`,
         `margin-right: var(${SNAPEND})`,
-        `left: var(${WIDTH})`,
-        'position: absolute',
-        'width: 100%',
+        `left: var(${SIZE}, ${WIDTH})`, // --carousel-item-width is deprecated
     ];
+    const isHorizontal = direction === 'horizontal';
+    const containerSize = isHorizontal ? container.offsetWidth : container.offsetHeight;
     const dummy = document.createElement('div');
     dummy.setAttribute('style', styles.join(';'));
-    container.appendChild(dummy);
+    const dummyContainer = document.createElement('div');
+    dummyContainer.setAttribute('style', `position: absolute; width: ${containerSize}px`);
+    dummyContainer.appendChild(dummy);
+    container.appendChild(dummyContainer);
     const computed = getComputedStyle(dummy);
     const hasSnapStart = computed.getPropertyValue(SNAPSTART) !== '';
     const hasSnapEnd = computed.getPropertyValue(SNAPEND) !== '';
@@ -41,7 +46,7 @@ export function getCSSValues(container: HTMLElement): CSSValues {
     const width = parseFloat(computed.getPropertyValue('left'));
     const autoScroll = parseFloat(computed.getPropertyValue(SCROLL));
     const disabled = parseInt(computed.getPropertyValue(DISABLED), 10);
-    container.removeChild(dummy);
+    container.removeChild(dummyContainer);
     return {
         gap: Math.max(Number.isFinite(gap) ? gap : 0, 0),
         snap: Number.isFinite(snap) ? snap : 0,

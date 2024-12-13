@@ -46,12 +46,13 @@ const renderedItems: string[] = Astro.slots.has('default')
     import { getCSSValues, hermite } from './utils';
 
     type SnapDistanceResult = { index: number; distance: number };
-    type ItemPositionResult = { x1: number; x2: number };
-    type DragStartValue = { t: number; x: number };
-    type DragRegisterValue = { t: number; x: number; dt: number; dx: number };
+    type ItemPositionResult = { startEdgePos: number; endEdgePos: number };
+    type DragStartValue = { t: number; pos: number };
+    type DragRegisterValue = { t: number; pos: number; dt: number; dpos: number };
     type WheelDataValue = { t: number; d: number; dt?: number };
 
     class Carousel extends HTMLElement {
+        private direction: NonNullable<CarouselOptions['direction']>;
         private align: NonNullable<CarouselOptions['align']>;
         private damping: NonNullable<CarouselOptions['damping']>;
         private disableSnap: NonNullable<CarouselOptions['disableSnap']>;
@@ -60,23 +61,23 @@ const renderedItems: string[] = Astro.slots.has('default')
 
         private items: HTMLElement[];
         private container: HTMLElement;
-        private containerWidth = 0;
+        private containerSize = 0;
         private resizeObserver?: ResizeObserver;
 
         private gap = 0;
-        private itemWidth: number = 0;
-        private itemWidths: Map<number, number> = new Map();
+        private itemSize: number = 0;
+        private itemSizes: Map<number, number> = new Map();
         private itemOffsets: Map<number, number> = new Map();
         private visibleItems: Set<number> = new Set();
-        // private snapPos = 0;
+        private snapPos = 0;
         private snapPosStart = 0;
-        // private snapPosEnd = 0;
+        private snapPosEnd = 0;
         private autoScroll = 0;
-        // private activeItemIndex = 0;
+        private activeItemIndex = 0;
         private activeItemIndexInternal = 0;
         private offset = 0;
 
-        private dragStart: DragStartValue = { t: 0, x: 0 };
+        private dragStart: DragStartValue = { t: 0, pos: 0 };
         private dragRegister: DragRegisterValue[] = [];
         private dragScrollLock = false;
         private dragPreventClick = false;
@@ -94,6 +95,7 @@ const renderedItems: string[] = Astro.slots.has('default')
         constructor() {
             super();
             const options = JSON.parse(this.dataset.options ?? '{}') as CarouselOptions;
+            this.direction = options.direction ?? 'horizontal';
             this.align = options.align ?? 'start';
             this.damping = options.damping ?? 200;
             this.disableSnap = options.disableSnap ?? false;
@@ -133,12 +135,12 @@ const renderedItems: string[] = Astro.slots.has('default')
         }
 
         private refresh = () => {
-            const values = getCSSValues(this.container);
+            const values = getCSSValues(this.container, this.direction);
             this.gap = values.gap;
-            this.itemWidth = values.width;
-            // this.snapPos = values.snap;
+            this.itemSize = values.width;
+            this.snapPos = values.snap;
             this.snapPosStart = values.snapStart;
-            // this.snapPosEnd = values.snapEnd;
+            this.snapPosEnd = values.snapEnd;
             this.disabled = values.disabled;
             if (Math.abs(this.autoScroll) !== Math.abs(values.autoScroll)) {
                 this.autoScroll = values.autoScroll;
@@ -151,8 +153,12 @@ const renderedItems: string[] = Astro.slots.has('default')
                 });
                 return;
             }
-            this.containerWidth = this.container.getBoundingClientRect().width;
-            this.calculateItemWidths();
+            this.containerSize =
+                this.direction === 'horizontal'
+                    ? this.container.offsetWidth
+                    : this.container.offsetHeight;
+
+            this.calculateItemSizes();
             this.calculateItemOffsets();
             try {
                 this.positionItems();
@@ -174,10 +180,12 @@ const renderedItems: string[] = Astro.slots.has('default')
             this.calculateItemOffsets();
         };
 
-        private calculateItemWidths = () => {
-            this.itemWidths.clear();
+        private calculateItemSizes = () => {
+            this.itemSizes.clear();
             this.container.childNodes.forEach((node, index) => {
-                this.itemWidths.set(index, (node as HTMLElement).offsetWidth);
+                const el = node as HTMLElement;
+                const size = this.direction === 'horizontal' ? el.offsetWidth : el.offsetHeight;
+                this.itemSizes.set(index, size);
             });
         };
 
@@ -185,29 +193,29 @@ const renderedItems: string[] = Astro.slots.has('default')
             const totalItems = this.items.length;
             const offsets = new Map<number, number>();
             const iActive = this.activeItemIndexInternal;
-            if (this.itemWidth !== 0) {
+            if (this.itemSize !== 0) {
                 for (let i = 0; i < totalItems; i++) {
-                    offsets.set(i, (iActive - i) * (this.itemWidth + this.gap));
+                    offsets.set(i, (iActive - i) * (this.itemSize + this.gap));
                 }
             } else {
                 offsets.set(iActive, 0); // Offset of activeItem is by definition 0
                 const maxDist = Math.max(iActive, totalItems - iActive);
                 for (let i = 1; i < maxDist; i++) {
-                    const iLeft = iActive - i;
-                    const iRight = iActive + i;
-                    if (iLeft >= 0) {
-                        const iLeft0 = iLeft + 1;
-                        const iLeft0Offset = offsets.get(iLeft0) ?? 0;
-                        const neighborOffset = this.getDistanceToNeighbor(iLeft0, 1);
-                        const offset = iLeft0Offset + neighborOffset;
-                        offsets.set(iLeft, offset);
+                    const iPrev = iActive - i;
+                    const iNext = iActive + i;
+                    if (iPrev >= 0) {
+                        const iPrev0 = iPrev + 1;
+                        const iPrev0Offset = offsets.get(iPrev0) ?? 0;
+                        const neighborOffset = this.getDistanceToNeighbor(iPrev0, 1);
+                        const offset = iPrev0Offset + neighborOffset;
+                        offsets.set(iPrev, offset);
                     }
-                    if (iRight < totalItems) {
-                        const iRight0 = iRight - 1;
-                        const iRight0Offset = offsets.get(iRight0) ?? 0;
-                        const neighborOffset = this.getDistanceToNeighbor(iRight0, -1);
-                        const offset = iRight0Offset + neighborOffset;
-                        offsets.set(iRight, offset);
+                    if (iNext < totalItems) {
+                        const iNext0 = iNext - 1;
+                        const iNext0Offset = offsets.get(iNext0) ?? 0;
+                        const neighborOffset = this.getDistanceToNeighbor(iNext0, -1);
+                        const offset = iNext0Offset + neighborOffset;
+                        offsets.set(iNext, offset);
                     }
                 }
             }
@@ -219,29 +227,29 @@ const renderedItems: string[] = Astro.slots.has('default')
             const index = modulo(i, totalItems);
             if (this.align === 'center') {
                 const indexNeighbor = modulo(i - dir, totalItems);
-                const currHalf = this.getItemWidth(index) / 2;
-                const nextHalf = this.getItemWidth(indexNeighbor) / 2;
+                const currHalf = this.getItemSize(index) / 2;
+                const nextHalf = this.getItemSize(indexNeighbor) / 2;
                 return dir * (this.gap + currHalf + nextHalf);
             } else {
                 const indexNeighbor = modulo(i - Math.max(dir, 0), totalItems);
-                const width = this.getItemWidth(indexNeighbor);
-                return dir * (this.gap + width);
+                const size = this.getItemSize(indexNeighbor);
+                return dir * (this.gap + size);
             }
         };
 
-        // private getClosestDistance = (index: number): number => {
-        //     const totalItems = this.items.length;
-        //     const activeIndex = this.activeItemIndexInternal;
-        //     const i1 = activeIndex > index ? index + totalItems - activeIndex : index - activeIndex;
-        //     const i2 = activeIndex > index ? index - activeIndex : index - totalItems - activeIndex;
-        //     const iDelta = Math.abs(i1) < Math.abs(i2) ? i1 : i2;
-        //     const iDeltaSign = sign(iDelta);
-        //     let distance = 0;
-        //     for (let i = 0; Math.abs(i) < Math.abs(iDelta); i += iDeltaSign) {
-        //         distance += this.getDistanceToNeighbor(activeIndex + i, -iDeltaSign);
-        //     }
-        //     return distance;
-        // };
+        private getClosestDistance = (index: number): number => {
+            const totalItems = this.items.length;
+            const activeIndex = this.activeItemIndexInternal;
+            const i1 = activeIndex > index ? index + totalItems - activeIndex : index - activeIndex;
+            const i2 = activeIndex > index ? index - activeIndex : index - totalItems - activeIndex;
+            const iDelta = Math.abs(i1) < Math.abs(i2) ? i1 : i2;
+            const iDeltaSign = sign(iDelta);
+            let distance = 0;
+            for (let i = 0; Math.abs(i) < Math.abs(iDelta); i += iDeltaSign) {
+                distance += this.getDistanceToNeighbor(activeIndex + i, -iDeltaSign);
+            }
+            return distance;
+        };
 
         private findSnapDistance = (distance: number): SnapDistanceResult => {
             let index = this.activeItemIndexInternal;
@@ -253,7 +261,6 @@ const renderedItems: string[] = Astro.slots.has('default')
                 let bestOffset = 0;
                 let bestIndex = index;
                 let bestDiff = Math.abs(offsetTarget);
-                let failSafeCounter = 0;
                 const dir = sign(offsetTarget);
                 do {
                     const distToNeighbor = this.getDistanceToNeighbor(index, dir);
@@ -264,23 +271,6 @@ const renderedItems: string[] = Astro.slots.has('default')
                         bestDiff = Math.abs(offsetDelta);
                         bestOffset = offsetCurr;
                         bestIndex = index;
-                    }
-                    if (failSafeCounter++ >= 50000) {
-                        console.log('[findSnapDistance] fail safe triggered', {
-                            index,
-                            distance,
-                            dir,
-                            offsetCurr,
-                            offsetDelta,
-                            offsetTarget,
-                            bestDiff,
-                            bestOffset,
-                            bestIndex,
-                            offsetInitial: this.offset,
-                            indexInitial: this.activeItemIndexInternal,
-                        });
-                        console.trace();
-                        break;
                     }
                 } while (offsetDelta * dir > 0);
                 return {
@@ -294,8 +284,8 @@ const renderedItems: string[] = Astro.slots.has('default')
             };
         };
 
-        private getItemWidth = (index: number): number => {
-            return this.itemWidths.get(index) ?? 0;
+        private getItemSize = (index: number): number => {
+            return this.itemSizes.get(index) ?? 0;
         };
 
         private getItemOffset = (index: number): number => {
@@ -307,10 +297,10 @@ const renderedItems: string[] = Astro.slots.has('default')
             const visibleItemsPrev = new Set(this.visibleItems);
             this.visibleItems = new Set();
             const index = this.activeItemIndexInternal;
-            const { x1, x2 } = this.getItemPosition(index);
-            this.position(index, x1, x2);
-            this.positionRight(modulo(index + 1, this.items.length), x2 + this.gap);
-            this.positionLeft(modulo(index - 1, this.items.length), x1 - this.gap);
+            const { startEdgePos, endEdgePos } = this.getItemPosition(index);
+            this.position(index, startEdgePos, endEdgePos);
+            this.positionRight(modulo(index + 1, this.items.length), endEdgePos + this.gap);
+            this.positionLeft(modulo(index - 1, this.items.length), startEdgePos - this.gap);
             visibleItemsPrev.forEach(index => {
                 if (!this.visibleItems.has(index)) {
                     const node = this.container.childNodes[index] as HTMLElement;
@@ -321,8 +311,8 @@ const renderedItems: string[] = Astro.slots.has('default')
             });
         };
 
-        private position = (index: number, x1: number, x2: number) => {
-            const isVisible = x1 < this.containerWidth && x2 > 0;
+        private position = (index: number, startEdgePos: number, endEdgePos: number) => {
+            const isVisible = startEdgePos < this.containerSize && endEdgePos > 0;
             if (isVisible) {
                 if (this.visibleItems.has(index)) {
                     throw new Error();
@@ -330,63 +320,48 @@ const renderedItems: string[] = Astro.slots.has('default')
                     this.visibleItems.add(index);
                     const node = this.container.childNodes[index] as HTMLElement;
                     if (node) {
-                        node.style.transform = `translate3d(${x1}px, 0, 0)`;
+                        node.style.transform =
+                            this.direction === 'horizontal'
+                                ? `translate3d(${startEdgePos}px, 0, 0)`
+                                : `translate3d(0, ${startEdgePos}px, 0)`;
                     }
                 }
             }
         };
 
-        private positionRight = (index: number, x1: number) => {
-            let failSafeCounter = 0;
-            while (x1 < this.containerWidth) {
-                const width = this.getItemWidth(index);
-                const x2 = x1 + width;
-                this.position(index, x1, x2);
+        private positionRight = (index: number, startEdgePos: number) => {
+            while (startEdgePos < this.containerSize) {
+                const size = this.getItemSize(index);
+                const endEdgePos = startEdgePos + size;
+                this.position(index, startEdgePos, endEdgePos);
                 index = modulo(index + 1, this.items.length);
-                x1 = x2 + this.gap;
-                if (failSafeCounter++ >= 50000) {
-                    console.log('[positionRight] fail safe triggered', {
-                        index,
-                        x1,
-                        x2,
-                    });
-                    break;
-                }
+                startEdgePos = endEdgePos + this.gap;
             }
         };
 
-        private positionLeft = (index: number, x2: number) => {
-            let failSafeCounter = 0;
-            while (x2 > 0) {
-                const width = this.getItemWidth(index);
-                const x1 = x2 - width;
-                this.position(index, x1, x2);
+        private positionLeft = (index: number, endEdgePos: number) => {
+            while (endEdgePos > 0) {
+                const size = this.getItemSize(index);
+                const startEdgePos = endEdgePos - size;
+                this.position(index, startEdgePos, endEdgePos);
                 index = modulo(index - 1, this.items.length);
-                x2 = x1 - this.gap;
-                if (failSafeCounter++ >= 50000) {
-                    console.log('[positionLeft] fail safe triggered', {
-                        index,
-                        x1,
-                        x2,
-                    });
-                    break;
-                }
+                endEdgePos = startEdgePos - this.gap;
             }
         };
 
         private getItemPosition = (index: number): ItemPositionResult => {
-            let x1, x2;
-            const itemWidth = this.getItemWidth(index);
+            let startEdgePos, endEdgePos;
+            const itemSize = this.getItemSize(index);
             const itemOffset = this.getItemOffset(index);
-            const x = this.offset + this.snapPosStart - itemOffset;
+            const pos = this.offset + this.snapPosStart - itemOffset;
             if (this.align === 'center') {
-                x1 = x - itemWidth / 2;
-                x2 = x + itemWidth / 2;
+                startEdgePos = pos - itemSize / 2;
+                endEdgePos = pos + itemSize / 2;
             } else {
-                x1 = x;
-                x2 = x + itemWidth;
+                startEdgePos = pos;
+                endEdgePos = pos + itemSize;
             }
-            return { x1, x2 };
+            return { startEdgePos, endEdgePos };
         };
 
         /////////////////////////////////////////////////////////////////////////////
@@ -420,7 +395,8 @@ const renderedItems: string[] = Astro.slots.has('default')
             if (event.pointerType === 'mouse' && event.button !== 0) return;
             this.stopAllAnimations();
             this.addPointerEvents();
-            this.dragStart = { t: performance.now(), x: event.screenX };
+            const pos = this.direction === 'horizontal' ? event.screenX : event.screenY;
+            this.dragStart = { t: performance.now(), pos };
             this.dragRegister = [];
             this.dragScrollLock = false;
             this.dragPreventClick = false;
@@ -439,11 +415,12 @@ const renderedItems: string[] = Astro.slots.has('default')
         };
 
         private handlePointerMove = (event: PointerEvent) => {
+            const screenPos = this.direction === 'horizontal' ? event.screenX : event.screenY;
             if (!event.isPrimary) return;
             if (!this.dragScrollLock) {
                 // Dragged horizontally for at least 5px: This is a legit swipe.
                 // Prevent-default touchmoves to stop browser from taking over.
-                const distTotal = Math.abs(event.screenX - this.dragStart.x);
+                const distTotal = Math.abs(screenPos - this.dragStart.pos);
                 const isDrag = distTotal >= 5;
                 if (isDrag) {
                     this.dragScrollLock = true;
@@ -459,18 +436,22 @@ const renderedItems: string[] = Astro.slots.has('default')
             // Determine current position and velocity:
             const prev = last(this.dragRegister) || this.dragStart;
             const t = performance.now();
-            const x = event.screenX;
+            const pos = screenPos;
             const dt = t - prev.t;
-            const dx = x - prev.x;
-            if (dx !== 0) {
-                this.dragRegister.push({ t, x, dt, dx });
-                this.offset += dx;
+            const dpos = pos - prev.pos;
+            if (dpos !== 0) {
+                this.dragRegister.push({ t, pos, dt, dpos });
+                this.offset += dpos;
                 this.positionItems();
             }
         };
 
         private handleTouchStart = (event: TouchEvent) => {
-            if (!this.enableNavigationGestures) {
+            if (
+                !this.enableNavigationGestures &&
+                this.direction === 'horizontal' &&
+                event.touches.length === 1
+            ) {
                 const { pageX } = event.touches[0];
                 if (pageX < 30 || pageX > window.innerWidth - 30) {
                     // Prevent navigation gestures from edges of screen
@@ -504,8 +485,10 @@ const renderedItems: string[] = Astro.slots.has('default')
             this.removePointerEvents();
             // Discard first sample
             this.dragRegister.shift();
+            // Discard zero dt values
+            this.dragRegister = this.dragRegister.filter(sample => sample.dt > 0);
             // Calculate total distance the pointer moved
-            const distance = this.dragRegister.reduce((a, sample) => a + Math.abs(sample.dx), 0);
+            const distance = this.dragRegister.reduce((a, sample) => a + Math.abs(sample.dpos), 0);
             // Calculate age of last pointer move
             const currentTime = performance.now();
             const lastTime = last(this.dragRegister)?.t ?? currentTime;
@@ -533,7 +516,7 @@ const renderedItems: string[] = Astro.slots.has('default')
                     let v0 = 0;
                     let weightSum = 0;
                     relevantSamples.forEach((sample, i) => {
-                        v0 += ((i + 1) * sample.dx) / sample.dt;
+                        v0 += ((i + 1) * sample.dpos) / sample.dt;
                         weightSum += i + 1;
                     });
                     v0 /= weightSum;
@@ -548,7 +531,6 @@ const renderedItems: string[] = Astro.slots.has('default')
         private dragThrow = (v0: number, t0: number) => {
             if (Math.abs(v0) > 0.1 && this.damping > 0) {
                 // Throw it!
-                // console.log(`[dragThrow] calling animateThrow`, { v0, t0 });
                 this.animateThrow(v0, t0);
             } else {
                 // This was not a throw.
@@ -558,7 +540,6 @@ const renderedItems: string[] = Astro.slots.has('default')
                 } else if (!this.disableSnap) {
                     // Snap back
                     let { distance, index } = this.findSnapDistance(0);
-                    // console.log(`[dragThrow] snap back `, { index, distance });
                     this.animateEased(this.offset + distance, index);
                 }
             }
@@ -805,9 +786,6 @@ const renderedItems: string[] = Astro.slots.has('default')
                     if (latestData?.dt) {
                         const v0 = -latestData.d / latestData.dt;
                         if (v0 !== 0) {
-                            // console.log(`[handleWheel] calling animateThrow`, {
-                            //     v0,
-                            // });
                             this.animateThrow(v0, performance.now());
                             this.wheelInertia = true;
                         }
