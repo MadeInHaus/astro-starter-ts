@@ -6,7 +6,7 @@ import '@/styles/global/variables.css';
 import '@/styles/global/typography.css';
 import '@/styles/global/theme.css';
 
-import { ViewTransitions } from 'astro:transitions';
+import { ClientRouter } from 'astro:transitions';
 import ReplacementSwap from 'astro-vtbot/components/ReplacementSwap.astro';
 
 import Header from '@/components/ui/Header/Header.astro';
@@ -30,7 +30,7 @@ interface Props {}
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <title>HAUS Astro TS Starter</title>
         <ThemeInit />
-        <ViewTransitions />
+        <ClientRouter />
         <ReplacementSwap />
     </head>
     <body>
