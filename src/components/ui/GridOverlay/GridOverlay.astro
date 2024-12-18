@@ -18,27 +18,7 @@ import styles from './GridOverlay.module.css';
 }
 
 <script>
-    class GridOverlay extends HTMLElement {
-        constructor() {
-            super();
-        }
-
-        connectedCallback() {
-            document.addEventListener('keypress', this.handleKey);
-        }
-
-        disconnectedCallback() {
-            document.removeEventListener('keypress', this.handleKey);
-        }
-
-        private handleKey = (event: KeyboardEvent) => {
-            const target = event.target as HTMLElement;
-            if (event.key === 'g' && target.nodeName !== 'INPUT') {
-                const el = this.querySelector(':scope > div');
-                el?.classList.toggle('visible');
-            }
-        };
-    }
+    import GridOverlay from './GridOverlay';
 
     if (!customElements.get('x-grid-overlay')) {
         customElements.define('x-grid-overlay', GridOverlay);
