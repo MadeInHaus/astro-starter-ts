@@ -1,5 +1,4 @@
 ---
-import grid from '@/styles/modules/grid.module.css';
 import styles from './Home.module.css';
 
 const GITHUB_URL = 'https://github.com/MadeInHaus/astro-starter-ts';
@@ -7,7 +6,7 @@ const GITHUB_URL = 'https://github.com/MadeInHaus/astro-starter-ts';
 const demoLinks = [{ href: '/demos/carousel', label: 'Carousel' }];
 ---
 
-<div class:list={[styles.root, grid.container]}>
+<div class:list={[styles.root, 'grid']}>
     <section class={styles.section}>
         <h2 class={styles.sectionHeadline}>Demos</h2>
         <ul>
