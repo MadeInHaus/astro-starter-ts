@@ -12,12 +12,11 @@ import ${name} from '@/components/pages/${name}/${name}.astro';
 
 export const pageComponentAstro = name => {
     return `---
-import grid from '@/styles/modules/grid.module.css';
 import styles from './${name}.module.css';
 ---
 
-<div class:list={[styles.root, grid.container]}>
-    <hgroup class={styles.header}>
+<div class={styles.root}>
+    <hgroup>
         <h1>${name}</h1>
         <p>This is the ${name} page.</p>
     </hgroup>
@@ -27,10 +26,6 @@ import styles from './${name}.module.css';
 
 export const pageComponentCSS = () => {
     return `.root {
-}
-
-.header {
-    grid-column: 1 / -1;
 }
 
 @media (width >= 768px) {

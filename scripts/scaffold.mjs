@@ -5,7 +5,12 @@ import sh from 'shelljs';
 import path from 'path';
 import fs from 'fs';
 
-import { uiComponentAstro, uiComponentCSS } from './templates/ui-component.mjs';
+import {
+    uiComponentAstro,
+    uiComponentAstroExternalTS,
+    uiComponentTS,
+    uiComponentCSS,
+} from './templates/ui-component.mjs';
 
 import {
     pageComponentRoute,
@@ -34,6 +39,14 @@ const uiComponentScaffold = async () => {
                 'Name must be in kebab-case',
         },
     ]);
+    const { seperateTS } = await inquirer.prompt([
+        {
+            type: 'confirm',
+            name: 'seperateTS',
+            message: `Separate TypeScript file?`,
+            default: true,
+        },
+    ]);
     const dir = path.resolve(process.cwd(), 'src', 'components', 'ui', name);
     if (sh.ls(dir).find(file => file === `${name}.astro`)) {
         const { overwrite } = await inquirer.prompt([
@@ -52,15 +65,24 @@ const uiComponentScaffold = async () => {
     sh.mkdir('-p', dir);
 
     const astro = new sh.ShellString(uiComponentAstro(name, customElementName));
+    const astroExtTS = new sh.ShellString(uiComponentAstroExternalTS(name, customElementName));
+    const ts = new sh.ShellString(uiComponentTS(name));
     const css = new sh.ShellString(uiComponentCSS());
 
-    astro.to(path.resolve(dir, `${name}.astro`));
-    css.to(path.resolve(dir, `${name}.module.css`));
+    if (seperateTS) {
+        astroExtTS.to(path.resolve(dir, `${name}.astro`));
+        css.to(path.resolve(dir, `${name}.module.css`));
+        ts.to(path.resolve(dir, `${name}.ts`));
+    } else {
+        astro.to(path.resolve(dir, `${name}.astro`));
+        css.to(path.resolve(dir, `${name}.module.css`));
+    }
 
     const check = chalk.green.bold('✓');
     console.log('\nFiles written:');
     console.log(`- src/components/ui/${name}/${name}.astro ${check}`);
-    console.log(`- src/components/ui/${name}/${name}.module.css ${check}\n`);
+    console.log(`- src/components/ui/${name}/${name}.module.css ${check}`);
+    console.log(seperateTS ? `- src/components/ui/${name}/${name}.ts ${check}\n` : '');
 };
 
 const pageComponentScaffold = async () => {
