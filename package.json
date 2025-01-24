@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "author": "HAUS",
   "engines": {
-    "node": "^20"
+    "node": "^22"
   },
   "type": "module",
   "scripts": {
