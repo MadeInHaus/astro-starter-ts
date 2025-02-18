@@ -1,26 +1,32 @@
 // https://ota-meshi.github.io/eslint-plugin-astro/
 
 import eslintPluginAstro from 'eslint-plugin-astro';
-
-const otherConfigs = eslintPluginAstro.configs['jsx-a11y-recommended'].filter(
-    cfg => cfg.name !== 'astro/base/typescript'
-);
-const tsConfig = eslintPluginAstro.configs['jsx-a11y-recommended'].find(
-    cfg => cfg.name === 'astro/base/typescript'
-);
+import tsEslint from '@typescript-eslint/eslint-plugin';
+import tsEslintParser from '@typescript-eslint/parser';
 
 export default [
-    ...otherConfigs,
-    // Original has files set to [ '**/*.astro/*.ts', '*.astro/*.ts' ]
-    // I have no idea why.
-    // We patch that here:
-    { ...tsConfig, files: ['**/*.ts'] },
+    ...eslintPluginAstro.configs['jsx-a11y-recommended'],
     {
-        ignores: ['**/node_modules/**', '**/dist/**', '**/.astro/**'],
+        files: ['**/*.ts'],
+        ignores: ['**/node_modules/**', '**/dist/**'],
+        languageOptions: { parser: tsEslintParser },
+    },
+    {
+        plugins: {
+            '@typescript-eslint': tsEslint,
+        },
         rules: {
-            'import/no-unresolved': 'off',
             'no-empty': 'off',
-            'no-unused-vars': 'warn',
+            'import/no-unresolved': 'off',
+            'no-unused-vars': 'off',
+            '@typescript-eslint/no-unused-vars': [
+                'warn',
+                {
+                    varsIgnorePattern: '^_',
+                    argsIgnorePattern: '^_',
+                    destructuredArrayIgnorePattern: '^_',
+                },
+            ],
         },
     },
 ];
