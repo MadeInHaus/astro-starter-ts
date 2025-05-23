@@ -1,7 +1,9 @@
+@import '@/styles/breakpoints.css';
+
 :root {
     --header-height: 60px;
 
-    @media (width >= 1280px) {
+    @media (--large) {
         --header-height: 80px;
     }
 }

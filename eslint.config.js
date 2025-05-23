@@ -8,10 +8,10 @@ export default [
     ...eslintPluginAstro.configs['jsx-a11y-recommended'],
     {
         files: ['**/*.ts'],
-        ignores: ['**/node_modules/**', '**/dist/**'],
         languageOptions: { parser: tsEslintParser },
     },
     {
+        ignores: ['**/.astro/**', '**/dist/**', '**/node_modules/**', '**/public/**'],
         plugins: {
             '@typescript-eslint': tsEslint,
         },
@@ -24,6 +24,7 @@ export default [
                 {
                     varsIgnorePattern: '^_',
                     argsIgnorePattern: '^_',
+                    caughtErrorsIgnorePattern: '^_',
                     destructuredArrayIgnorePattern: '^_',
                 },
             ],

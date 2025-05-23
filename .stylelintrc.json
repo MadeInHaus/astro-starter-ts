@@ -17,6 +17,8 @@
         "no-descending-specificity": null,
         "max-nesting-depth": 3,
         "selector-class-pattern": null,
+        "import-notation": "string",
+        "property-no-unknown": [true, { "ignoreProperties": ["composes"] }],
         "rule-empty-line-before": [
             "always",
             {
