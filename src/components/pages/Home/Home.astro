@@ -8,7 +8,7 @@ const demoLinks = [{ href: '/demos/carousel', label: 'Carousel' }];
 
 <div class:list={[styles.root, 'grid']}>
     <section class={styles.section}>
-        <h2 class={styles.sectionHeadline}>Demos</h2>
+        <h2 class={styles.sectionHeadline} data-reveal="none">Demos</h2>
         <ul>
             {
                 demoLinks.map(({ href, label }) => (
@@ -22,7 +22,7 @@ const demoLinks = [{ href: '/demos/carousel', label: 'Carousel' }];
         </ul>
     </section>
     <section class={styles.section}>
-        <h2 class:list={[styles.sectionHeadline, 'body']}>Theme</h2>
+        <h2 class:list={[styles.sectionHeadline, 'body']} data-reveal="none">Theme</h2>
         <theme-buttons>
             <ul class={styles.themeButtons}>
                 <li><button data-theme="auto" class={styles.themeButton}>Automatic</button></li>
@@ -32,7 +32,7 @@ const demoLinks = [{ href: '/demos/carousel', label: 'Carousel' }];
         </theme-buttons>
     </section>
     <section class={styles.section}>
-        <h2 class:list={[styles.sectionHeadline, 'body']}>Source</h2>
+        <h2 class:list={[styles.sectionHeadline, 'body']} data-reveal="none">Source</h2>
         <ul>
             <li class={styles.link}>
                 <a href={GITHUB_URL}>

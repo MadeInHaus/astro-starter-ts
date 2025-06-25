@@ -1,10 +1,13 @@
 import { defineConfig } from 'astro/config';
+import * as dotenv from 'dotenv';
 import sitemap from '@astrojs/sitemap';
 
-import vtbot from 'astro-vtbot';
+dotenv.config();
 
 // https://astro.build/config
 export default defineConfig({
-    site: 'https://astro-starter-ts.vercel.app',
-    integrations: [sitemap(), vtbot({ loadingIndicator: false })],
+    site: `https://${process.env.SITE_DOMAIN}`,
+    build: { assets: '_static' },
+    integrations: [sitemap()],
+    devToolbar: { enabled: false },
 });

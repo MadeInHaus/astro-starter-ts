@@ -1,3 +1,5 @@
+@import '@/styles/breakpoints.css';
+
 :root {
     --grid-margin: 20px;
     --grid-gap: 10px;
@@ -9,31 +11,41 @@
     --grid-col-width: calc(var(--grid-cols-width) / var(--grid-columns));
 }
 
-@media (width >= 768px) {
+@media (--medium) {
     :root {
         --grid-margin: 50px;
         --grid-gap: 20px;
     }
 }
 
-@media (width >= 1280px) {
+@media (--large) {
     :root {
         --grid-columns: 12;
     }
 }
 
-@media (width >= 1920px) {
+@media (--xlarge) {
     :root {
-        --grid-margin: 100px;
+        --grid-margin: calc(50px + (100vw - 1600px) / 2);
     }
 }
 
 .grid {
     display: grid;
     width: calc(100% - var(--grid-margin) * 2) !important;
-    margin-left: var(--grid-margin) !important;
-    margin-right: var(--grid-margin) !important;
+    margin-inline: var(--grid-margin) !important;
     grid-gap: 0 var(--grid-gap);
     grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
     grid-template-rows: auto;
+    grid-auto-flow: row dense;
+}
+
+.grid-nested {
+    display: grid;
+    width: 100% !important;
+    margin-inline: 0 !important;
+    grid-gap: 0 var(--grid-gap);
+    grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
+    grid-template-rows: auto;
+    grid-auto-flow: row dense;
 }
