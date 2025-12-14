@@ -5,3 +5,5 @@ README.md
 .vscode
 node_modules
 public
+src/services/graphql/types.ts
+_contentful

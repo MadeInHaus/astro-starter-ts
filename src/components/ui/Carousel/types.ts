@@ -2,8 +2,8 @@ export type CarouselDirection = 'horizontal' | 'vertical';
 
 export type CarouselProps = {
     items: any[];
-    className?: string;
-    itemClassName?: string;
+    class?: string;
+    itemClass?: string;
 };
 
 export type CarouselOptions = {

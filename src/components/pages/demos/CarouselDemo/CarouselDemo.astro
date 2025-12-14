@@ -11,7 +11,7 @@ const dogs = json.message.map((url: string, index: number) => ({ url, index }));
 ---
 
 <div class={styles.root}>
-    <Carousel items={dogs} className={styles.carousel} itemClassName={styles.item}>
+    <Carousel items={dogs} class={styles.carousel} itemClass={styles.item}>
         {
             (item: { url: string; index: number }) => (
                 <div class={styles.itemContainer}>

@@ -11,7 +11,14 @@ export default [
         languageOptions: { parser: tsEslintParser },
     },
     {
-        ignores: ['**/.astro/**', '**/dist/**', '**/node_modules/**', '**/public/**'],
+        ignores: [
+            '**/.astro/**',
+            '**/.vercel/**',
+            '**/.vscode/**',
+            '**/dist/**',
+            '**/node_modules/**',
+            '**/public/**',
+        ],
         plugins: {
             '@typescript-eslint': tsEslint,
         },
@@ -28,6 +35,8 @@ export default [
                     destructuredArrayIgnorePattern: '^_',
                 },
             ],
+            // Turning this off because setting onload on <img> in JSX triggered this error for some reason
+            'astro/jsx-a11y/no-noninteractive-element-interactions': 'off',
         },
     },
 ];
