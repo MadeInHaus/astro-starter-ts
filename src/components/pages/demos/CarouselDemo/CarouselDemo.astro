@@ -10,15 +10,28 @@ const json = await response.json();
 const dogs = json.message.map((url: string, index: number) => ({ url, index }));
 ---
 
-<div class={styles.root}>
-    <Carousel items={dogs} class={styles.carousel} itemClass={styles.item}>
+<carousel-demo class={styles.root}>
+    <Carousel data-ref="carousel" items={dogs} class={styles.carousel} itemClass={styles.item}>
         {
             (item: { url: string; index: number }) => (
                 <div class={styles.itemContainer}>
-                    <div class={styles.index}>{item.index}</div>
+                    <div class={styles.index}>{item.index + 1}</div>
                     <LazyImage src={item.url} className={styles.image} alt="" />
                 </div>
             )
         }
     </Carousel>
-</div>
+    <div class={styles.controls}>
+        <button data-ref="prev" aria-label="Previous" class={styles.button}>&lt;</button>
+        <button data-ref="next" aria-label="Next" class={styles.button}>&gt;</button>
+        <span data-ref="info" class={styles.info}>1/137</span>
+    </div>
+</carousel-demo>
+
+<script>
+    import CarouselDemo from './CarouselDemo';
+
+    if (!customElements.get('carousel-demo')) {
+        customElements.define('carousel-demo', CarouselDemo);
+    }
+</script>
