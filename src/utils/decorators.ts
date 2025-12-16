@@ -22,9 +22,7 @@ export function Refs(refId: string) {
     return function (target: any, propertyKey: string) {
         Object.defineProperty(target, propertyKey, {
             get: function (this: HTMLElement): HTMLElement[] {
-                const elements = Array.from(
-                    this.querySelectorAll<HTMLElement>(`[data-ref="${refId}"]`)
-                );
+                const elements = [...this.querySelectorAll<HTMLElement>(`[data-ref="${refId}"]`)];
                 if (elements.length > 0) {
                     Object.defineProperty(this, propertyKey, {
                         value: elements,
@@ -40,28 +38,27 @@ export function Refs(refId: string) {
     };
 }
 
-export function Bind(_: any, _key: string, descriptor: PropertyDescriptor) {
+export function Bind(_target: any, propertyKey: string, descriptor: PropertyDescriptor) {
     const originalMethod = descriptor.value;
-
     return {
-        configurable: true,
         get() {
             const boundMethod = originalMethod.bind(this);
-            Object.defineProperty(this, _key, {
+            Object.defineProperty(this, propertyKey, {
                 value: boundMethod,
                 configurable: true,
                 writable: true,
             });
             return boundMethod;
         },
+        configurable: true,
     };
 }
 
 interface ListenerData {
     targetProp: 'this' | 'document' | 'window' | string;
     eventName: string;
-    propertyKey: string;
     options?: boolean | AddEventListenerOptions;
+    propertyKey: string;
 }
 
 export function Listen(
@@ -81,55 +78,54 @@ export function Listen(
             propertyKey,
         });
 
-        if (target.constructor._listenersPatched) return;
+        if (!target.constructor._connectedCallbackPatched) {
+            const connectedCallbackOriginal = target.connectedCallback;
 
-        const originalConnected = target.connectedCallback;
-        const originalDisconnected = target.disconnectedCallback;
+            target.connectedCallback = function () {
+                connectedCallbackOriginal?.call(this);
 
-        target.connectedCallback = function () {
-            if (originalConnected) {
-                originalConnected.call(this);
-            }
+                const listeners = (this.constructor as any)._listeners as ListenerData[];
+                if (listeners) {
+                    listeners.forEach(({ targetProp, eventName, options, propertyKey }) => {
+                        let eventTarget: EventTarget | undefined;
+                        if (targetProp === 'window') eventTarget = window;
+                        else if (targetProp === 'document') eventTarget = document;
+                        else if (targetProp === 'this') eventTarget = this;
+                        else eventTarget = (this as any)[targetProp];
+                        if (eventTarget) {
+                            const handler = (this as any)[propertyKey];
+                            eventTarget.addEventListener(eventName, handler, options);
+                        }
+                    });
+                }
+            };
 
-            const listeners = (this.constructor as any)._listeners as ListenerData[];
-            if (listeners) {
-                listeners.forEach(({ targetProp, eventName, options, propertyKey }) => {
-                    let eventTarget: EventTarget | undefined;
-                    if (targetProp === 'window') eventTarget = window;
-                    else if (targetProp === 'document') eventTarget = document;
-                    else if (targetProp === 'this') eventTarget = this;
-                    else eventTarget = (this as any)[targetProp];
+            target.constructor._connectedCallbackPatched = true;
+        }
 
-                    if (eventTarget) {
-                        const handler = (this as any)[propertyKey];
-                        eventTarget.addEventListener(eventName, handler, options);
-                    }
-                });
-            }
-        };
+        if (!target.constructor._disconnectedCallbackPatched) {
+            const disconnectedCallbackOriginal = target.disconnectedCallback;
 
-        target.disconnectedCallback = function () {
-            if (originalDisconnected) {
-                originalDisconnected.call(this);
-            }
+            target.disconnectedCallback = function () {
+                disconnectedCallbackOriginal?.call(this);
 
-            const listeners = (this.constructor as any)._listeners as ListenerData[];
-            if (listeners) {
-                listeners.forEach(({ targetProp, eventName, options, propertyKey }) => {
-                    let eventTarget: EventTarget | undefined;
-                    if (targetProp === 'window') eventTarget = window;
-                    else if (targetProp === 'document') eventTarget = document;
-                    else if (targetProp === 'this') eventTarget = this;
-                    else eventTarget = (this as any)[targetProp];
+                const listeners = (this.constructor as any)._listeners as ListenerData[];
+                if (listeners) {
+                    listeners.forEach(({ targetProp, eventName, options, propertyKey }) => {
+                        let eventTarget: EventTarget | undefined;
+                        if (targetProp === 'window') eventTarget = window;
+                        else if (targetProp === 'document') eventTarget = document;
+                        else if (targetProp === 'this') eventTarget = this;
+                        else eventTarget = (this as any)[targetProp];
+                        if (eventTarget) {
+                            const handler = (this as any)[propertyKey];
+                            eventTarget.removeEventListener(eventName, handler, options);
+                        }
+                    });
+                }
+            };
 
-                    if (eventTarget) {
-                        const handler = (this as any)[propertyKey];
-                        eventTarget.removeEventListener(eventName, handler, options);
-                    }
-                });
-            }
-        };
-
-        target.constructor._listenersPatched = true;
+            target.constructor._disconnectedCallbackPatched = true;
+        }
     };
 }
