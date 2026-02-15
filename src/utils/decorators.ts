@@ -38,6 +38,39 @@ export function Refs(refId: string) {
     };
 }
 
+export function Hydrate(id: string, defaultValue?: any) {
+    return function (target: any, propertyKey: string) {
+        Object.defineProperty(target, propertyKey, {
+            get: function (this: HTMLElement) {
+                try {
+                    const value = this.dataset[id];
+                    if (value) {
+                        const parsed = JSON.parse(value);
+                        Object.defineProperty(this, propertyKey, {
+                            value: parsed,
+                            writable: true,
+                            configurable: true,
+                        });
+                        console.log(`Hydrate.get ${id}:`, parsed);
+                        return parsed;
+                    }
+                } catch (_e) {
+                    // Fallthrough
+                }
+                Object.defineProperty(this, propertyKey, {
+                    value: defaultValue,
+                    writable: true,
+                    configurable: true,
+                });
+                console.log(`Hydrate.get fallback ${id}:`, defaultValue);
+                return defaultValue;
+            },
+            enumerable: true,
+            configurable: true,
+        });
+    };
+}
+
 export function Bind(_target: any, propertyKey: string, descriptor: PropertyDescriptor) {
     const originalMethod = descriptor.value;
     return {
