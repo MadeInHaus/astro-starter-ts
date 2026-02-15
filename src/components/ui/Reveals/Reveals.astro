@@ -3,9 +3,10 @@ import './Reveals.css';
 ---
 
 <script>
-    import { split } from '@/utils/splitter';
-    import { moveAttributes, moveChildNodes } from '@/utils/splitter/dom';
     import type { SplitOptions } from '@/utils/splitter/types';
+    import { split } from '@/utils/splitter';
+    import { isPartiallyInViewport } from '@/utils';
+    import { moveAttributes, moveChildNodes } from '@/utils/splitter/dom';
 
     class RevealController {
         private revealElements: RevealElement[] = [];
@@ -63,27 +64,65 @@ import './Reveals.css';
     }
 
     class RevealElement {
-        private type: RevealType;
-        private element: HTMLElement;
+        private _type: RevealType;
+        private _element: HTMLElement;
+        private _splitOptions: Required<SplitOptions>;
         private elementCopy?: HTMLElement;
-        private splitOptions: Required<SplitOptions>;
-        private intersectionObserver: IntersectionObserver | null = null;
-        private handleIntersectionBound: (entries: IntersectionObserverEntry[]) => void;
-        private handleTransitionEndBound: (event: TransitionEvent) => void;
+        private intersectionObserverActivate: IntersectionObserver | null = null;
+        private intersectionObserverDeactivate: IntersectionObserver | null = null;
+        private resizeObserver: ResizeObserver | null = null;
+        private isSplit: boolean = false;
         private timeout: number = 0;
-        private totalLines?: number;
 
         constructor({ type, element, splitOptions }: RevealOptions) {
-            this.type = type;
-            this.element = element;
-            this.splitOptions = splitOptions;
-            this.handleIntersectionBound = this.handleIntersection.bind(this);
-            this.handleTransitionEndBound = this.handleTransitionEnd.bind(this);
+            this._type = type;
+            this._element = element;
+            this._splitOptions = splitOptions;
+        }
+
+        get type() {
+            return this._type;
+        }
+
+        get element() {
+            return this._element;
+        }
+
+        get splitOptions() {
+            return this._splitOptions;
         }
 
         init() {
-            this.intersectionObserver = new IntersectionObserver(this.handleIntersectionBound);
-            this.intersectionObserver.observe(this.element);
+            this.intersectionObserverActivate = new IntersectionObserver(
+                ([entry]) => {
+                    if (entry.isIntersecting) {
+                        if (this.type === 'lines') {
+                            this.intersectionObserverDeactivate = new IntersectionObserver(
+                                ([entry]) => {
+                                    if (!entry.isIntersecting) {
+                                        this.revertLineSplit();
+                                    }
+                                }
+                            );
+                            this.intersectionObserverDeactivate.observe(this.element);
+
+                            this.resizeObserver = new ResizeObserver(() => {
+                                this.revertLineSplit();
+                            });
+                            this.resizeObserver.observe(this.element);
+                        }
+
+                        this.destroyIntersectionObserverActivate();
+                        this.activate();
+                    }
+                },
+                {
+                    // See activate() for explanation
+                    rootMargin: '50000px 0px 0px 0px',
+                }
+            );
+
+            this.intersectionObserverActivate.observe(this.element);
 
             if (this.type === 'lines') {
                 this.elementCopy = this.element.cloneNode(true) as HTMLElement;
@@ -104,24 +143,40 @@ import './Reveals.css';
 
         destroy() {
             window.clearTimeout(this.timeout);
-            this.destroyIntersectionObserver();
-            this.element.removeEventListener('transitionend', this.handleTransitionEndBound);
+            this.destroyResizeObserver();
+            this.destroyIntersectionObserverActivate();
+            this.destroyIntersectionObserverDeactivate();
         }
 
-        private handleIntersection([entry]: IntersectionObserverEntry[]) {
-            if (entry.isIntersecting) {
-                this.destroyIntersectionObserver();
-                if (this.type === 'lines') {
+        activate() {
+            // Verify element is actually visible before revealing.
+            // Our large top rootMargin (50000px) can trigger activation for
+            // off-screen elements during page navigation (hash anchor links,
+            // back button, etc.). We skip animation for elements that aren't
+            // truly visible to prevent reveals when scrolling up.
+            if (!isPartiallyInViewport(this.element)) {
+                this.element.style.setProperty('--duration', '0s');
+                this.element.style.setProperty('--delay', '0s');
+                this.element.style.setProperty('--stagger', '0s');
+                this.element.dataset.revealState = this.type;
+                return;
+            }
+            if (this.type === 'lines') {
+                if (!this.isSplit) {
+                    this.isSplit = true;
                     this.timeout = window.setTimeout(() => {
-                        const { totalLines } = split(this.element, this.splitOptions);
-                        this.totalLines = totalLines;
+                        const fontFamily = window.getComputedStyle(this.element).fontFamily;
+                        split(this.element, {
+                            ...this.splitOptions,
+                            kerningCacheKey: (a: string, b: string) => `${fontFamily}-${a}-${b}`,
+                        });
                         this.timeout = window.setTimeout(() => {
                             this.reveal();
                         }, 50);
                     }, 50);
-                } else if (this.type === 'block') {
-                    this.reveal();
                 }
+            } else if (this.type === 'block') {
+                this.reveal();
             }
         }
 
@@ -139,34 +194,40 @@ import './Reveals.css';
             if (stagger) {
                 this.element.style.setProperty('--stagger', stagger);
             }
+
             this.element.dataset.revealState = this.type;
+        }
 
-            if (this.type === 'lines') {
-                this.element.addEventListener('transitionend', this.handleTransitionEndBound);
+        private revertLineSplit() {
+            if (this.element.dataset.revealState === 'lines') {
+                this.destroyIntersectionObserverDeactivate();
+                this.destroyResizeObserver();
+                const elementCopy = this.elementCopy!.cloneNode(true) as HTMLElement;
+                moveChildNodes(elementCopy, this.element);
+                moveAttributes(elementCopy, this.element);
+                this.element.dataset.revealState = 'lines';
+                this.isSplit = false;
             }
         }
 
-        private handleTransitionEnd(event: TransitionEvent) {
-            if (this.totalLines && (event.target as HTMLElement).matches("[data-type^='line']")) {
-                this.totalLines--;
-                if (this.totalLines === 0) {
-                    // Revert split
-                    const elementCopy = this.elementCopy!.cloneNode(true) as HTMLElement;
-                    moveChildNodes(elementCopy, this.element);
-                    moveAttributes(elementCopy, this.element);
-                    this.element.dataset.revealState = 'lines';
-                    this.element.removeEventListener(
-                        'transitionend',
-                        this.handleTransitionEndBound
-                    );
-                }
+        private destroyResizeObserver() {
+            if (this.resizeObserver) {
+                this.resizeObserver.disconnect();
+                this.resizeObserver = null;
             }
         }
 
-        private destroyIntersectionObserver() {
-            if (this.intersectionObserver) {
-                this.intersectionObserver.disconnect();
-                this.intersectionObserver = null;
+        private destroyIntersectionObserverActivate() {
+            if (this.intersectionObserverActivate) {
+                this.intersectionObserverActivate.disconnect();
+                this.intersectionObserverActivate = null;
+            }
+        }
+
+        private destroyIntersectionObserverDeactivate() {
+            if (this.intersectionObserverDeactivate) {
+                this.intersectionObserverDeactivate.disconnect();
+                this.intersectionObserverDeactivate = null;
             }
         }
     }
