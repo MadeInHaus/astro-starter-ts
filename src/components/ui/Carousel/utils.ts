@@ -8,6 +8,9 @@ export type CSSValues = {
     snapEnd: number;
     width: number;
     autoScroll: number;
+    autoAdvance: number;
+    autoAdvanceDelay: number;
+    autoAdvanceDuration: number;
     disabled: boolean;
 };
 
@@ -19,6 +22,9 @@ export function getCSSValues(container: HTMLElement, direction: CarouselDirectio
     const SIZE = '--carousel-item-size';
     const WIDTH = '--carousel-item-width';
     const SCROLL = '--carousel-autoscroll';
+    const ADVANCE = '--carousel-autoadvance';
+    const ADVANCEDELAY = '--carousel-autoadvance-delay';
+    const ADVANCEDURATION = '--carousel-autoadvance-duration';
     const DISABLED = '--carousel-disabled';
     const styles = [
         `width: 100%`,
@@ -27,6 +33,8 @@ export function getCSSValues(container: HTMLElement, direction: CarouselDirectio
         `margin-left: var(${SNAPSTART})`,
         `margin-right: var(${SNAPEND})`,
         `left: var(${SIZE}, ${WIDTH})`, // --carousel-item-width is deprecated
+        `transition-delay: var(${ADVANCEDELAY})`,
+        `transition-duration: var(${ADVANCEDURATION})`,
     ];
     const isHorizontal = direction === 'horizontal';
     const containerSize = isHorizontal ? container.offsetWidth : container.offsetHeight;
@@ -45,6 +53,9 @@ export function getCSSValues(container: HTMLElement, direction: CarouselDirectio
     const snapEnd = parseFloat(computed.getPropertyValue('margin-right'));
     const width = parseFloat(computed.getPropertyValue('left'));
     const autoScroll = parseFloat(computed.getPropertyValue(SCROLL));
+    const autoAdvance = parseInt(computed.getPropertyValue(ADVANCE), 10);
+    const autoAdvanceDelay = parseTime(computed.getPropertyValue('transition-delay'), 5000);
+    const autoAdvanceDuration = parseTime(computed.getPropertyValue('transition-duration'), 700);
     const disabled = parseInt(computed.getPropertyValue(DISABLED), 10);
     container.removeChild(dummyContainer);
     return {
@@ -54,8 +65,27 @@ export function getCSSValues(container: HTMLElement, direction: CarouselDirectio
         snapEnd: hasSnapEnd && Number.isFinite(snapEnd) ? snapEnd : snap,
         width: Math.max(Number.isFinite(width) ? width : 0, 0),
         autoScroll: Number.isFinite(autoScroll) ? autoScroll : 0,
+        autoAdvance: Number.isFinite(autoAdvance) ? autoAdvance : 0,
+        autoAdvanceDelay,
+        autoAdvanceDuration,
         disabled: (Number.isFinite(disabled) ? disabled : 0) !== 0,
     };
+}
+
+function parseTime(value: string, defaultValue: number): number {
+    const match = value?.trim()?.match(/([0-9.]+)(ms|s)/);
+    if (match) {
+        const num = parseFloat(match[1]);
+        if (Number.isFinite(num) && num !== 0) {
+            const unit = match[2];
+            if (unit === 'ms') {
+                return num;
+            } else if (unit === 's') {
+                return num * 1000;
+            }
+        }
+    }
+    return defaultValue;
 }
 
 export function hermite(

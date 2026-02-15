@@ -42,6 +42,9 @@ export class Carousel extends HTMLElement {
     private snapPos = 0;
     // private snapPosEnd = 0;
     private autoScroll = 0;
+    private autoAdvance = 0;
+    private autoAdvanceDelay = 0;
+    private autoAdvanceDuration = 0;
     private activeItemIndexInternal = 0;
     private animationState: AnimationState | null = null;
     private offset = 0;
@@ -57,6 +60,7 @@ export class Carousel extends HTMLElement {
     private dragScrollLock = false;
     private dragPreventClick = false;
 
+    private intervalAutoAdvance = 0;
     private rafAutoScroll = 0;
     private rafThrow = 0;
     private rafEased = 0;
@@ -130,6 +134,9 @@ export class Carousel extends HTMLElement {
         this.itemSize = values.width;
         this.snapPos = values.snapStart;
         this.disabled = values.disabled;
+        this.autoAdvance = values.autoAdvance;
+        this.autoAdvanceDelay = values.autoAdvanceDelay;
+        this.autoAdvanceDuration = values.autoAdvanceDuration;
         if (Math.abs(this.autoScroll) !== Math.abs(values.autoScroll)) {
             this.autoScroll = values.autoScroll;
         }
@@ -153,11 +160,13 @@ export class Carousel extends HTMLElement {
         } catch (_) {
             console.error('Not enough items to fill available space!');
         }
-        // Start or stop auto-scroll animation
+        // Start or stop auto-scroll/auto-advance animation
         if (this.autoScroll !== 0) {
             this.animateAutoScroll();
+        } else if (this.autoAdvance !== 0) {
+            this.animateAutoAdvance();
         } else {
-            this.stopAutoScrollAnimation();
+            this.stopAutoAnimations();
         }
     }
 
@@ -567,6 +576,10 @@ export class Carousel extends HTMLElement {
                 // Snap back
                 let { distance, index } = this.findSnapDistance(0);
                 this.animateEased(this.offset + distance, index);
+                // Start auto advance if enabled
+                if (this.shouldStartAutoAdvance()) {
+                    this.animateAutoAdvance();
+                }
             }
         }
     }
@@ -575,9 +588,11 @@ export class Carousel extends HTMLElement {
     //// ANIMATIONS
     /////////////////////////////////////////////////////////////////////////////
 
-    private stopAutoScrollAnimation() {
+    private stopAutoAnimations() {
         window.cancelAnimationFrame(this.rafAutoScroll);
+        window.clearInterval(this.intervalAutoAdvance);
         this.rafAutoScroll = 0;
+        this.intervalAutoAdvance = 0;
     }
 
     private stopThrowAnimation() {
@@ -592,13 +607,17 @@ export class Carousel extends HTMLElement {
     }
 
     private stopAllAnimations() {
-        this.stopAutoScrollAnimation();
+        this.stopAutoAnimations();
         this.stopThrowAnimation();
         this.stopEasedAnimation();
     }
 
     private shouldStartAutoScroll() {
         return this.autoScroll !== 0 && !this.disabled && !this.rafAutoScroll;
+    }
+
+    private shouldStartAutoAdvance() {
+        return this.autoAdvance !== 0 && !this.disabled && !this.intervalAutoAdvance;
     }
 
     private animateAutoScroll(v0: number = 0, tweenDuration: number = 500) {
@@ -617,6 +636,18 @@ export class Carousel extends HTMLElement {
             this.rafAutoScroll = requestAnimationFrame(loop);
         };
         this.rafAutoScroll = requestAnimationFrame(loop);
+    }
+
+    private animateAutoAdvance() {
+        if (!this.shouldStartAutoAdvance()) {
+            return;
+        }
+        this.intervalAutoAdvance = window.setInterval(() => {
+            const index =
+                (this.animationState?.targetIndex ?? this.activeItemIndexInternal) +
+                this.autoAdvance;
+            this.animateEasedToIndex(index, this.autoAdvanceDuration);
+        }, this.autoAdvanceDelay);
     }
 
     /**
@@ -698,7 +729,6 @@ export class Carousel extends HTMLElement {
 
         this.quinticT0 = now;
         this.quinticPlan = this.planQuintic(startState, endState, duration);
-
         this.animationState = { targetIndex, targetOffset, trigger: 'animateEased' };
 
         const indexMod = modulo(targetIndex, this.items.length);
@@ -794,7 +824,11 @@ export class Carousel extends HTMLElement {
                     this.updateActiveItemIndex();
                 }
                 this.positionItems();
-                this.animateAutoScroll();
+                if (this.shouldStartAutoScroll()) {
+                    this.animateAutoScroll();
+                } else if (this.shouldStartAutoAdvance()) {
+                    this.animateAutoAdvance();
+                }
             } else {
                 this.rafThrow = requestAnimationFrame(loop);
                 this.offset = startPos + d;
