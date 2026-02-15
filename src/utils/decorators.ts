@@ -51,7 +51,6 @@ export function Hydrate(id: string, defaultValue?: any) {
                             writable: true,
                             configurable: true,
                         });
-                        console.log(`Hydrate.get ${id}:`, parsed);
                         return parsed;
                     }
                 } catch (_e) {
@@ -62,7 +61,6 @@ export function Hydrate(id: string, defaultValue?: any) {
                     writable: true,
                     configurable: true,
                 });
-                console.log(`Hydrate.get fallback ${id}:`, defaultValue);
                 return defaultValue;
             },
             enumerable: true,
