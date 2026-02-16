@@ -352,7 +352,7 @@ export class Carousel extends HTMLElement {
         const isVisible = startEdgePos < this.containerSize && endEdgePos > 0;
         if (isVisible) {
             if (this.visibleItems.has(index)) {
-                throw new Error();
+                console.error('Not enough items to fill space.');
             } else {
                 this.visibleItems.set(index, { startPos: startEdgePos, endPos: endEdgePos });
                 const node = this.container.childNodes[index] as HTMLElement;
