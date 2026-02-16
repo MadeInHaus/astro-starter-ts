@@ -8,6 +8,7 @@
     padding: 0;
     overflow: hidden;
     width: 100%;
+    user-select: none;
     touch-action: pan-y;
 }
 
@@ -16,7 +17,6 @@
     width: fit-content;
     will-change: transform;
     transform: translate3d(-200%, 0, 0);
-    user-select: none;
     list-style: none;
 }
 
