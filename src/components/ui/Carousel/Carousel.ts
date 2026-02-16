@@ -38,9 +38,7 @@ export class Carousel extends HTMLElement {
     private itemSizes: Map<number, number> = new Map();
     private itemOffsets: Map<number, number> = new Map();
     private visibleItems: Map<number, { startPos: number; endPos: number }> = new Map();
-    // private snapPos = 0;
     private snapPos = 0;
-    // private snapPosEnd = 0;
     private autoScroll = 0;
     private autoAdvance = 0;
     private autoAdvanceDelay = 0;
