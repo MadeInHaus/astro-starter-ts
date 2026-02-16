@@ -95,6 +95,9 @@ export class Carousel extends HTMLElement {
 
     disconnectedCallback() {
         this.resizeObserver?.unobserve(this.container);
+        this.removePointerEvents();
+        this.stopAllAnimations();
+        clearTimeout(this.wheelTimeout);
     }
 
     moveIntoView(index: number, duration: number = 700) {
@@ -104,11 +107,15 @@ export class Carousel extends HTMLElement {
 
     next(duration: number = 700) {
         const index = (this.animationState?.targetIndex ?? this.activeItemIndexInternal) + 1;
+        this.stopThrowAnimation();
+        this.stopAutoAnimations();
         this.animateEasedToIndex(index, duration);
     }
 
     prev(duration: number = 700) {
         const index = (this.animationState?.targetIndex ?? this.activeItemIndexInternal) - 1;
+        this.stopThrowAnimation();
+        this.stopAutoAnimations();
         this.animateEasedToIndex(index, duration);
     }
 
@@ -716,12 +723,9 @@ export class Carousel extends HTMLElement {
     }
 
     private animateEased(targetOffset: number, targetIndex: number, duration = 1000) {
+        this.stopThrowAnimation();
+
         const now = performance.now();
-
-        if (this.animationState?.trigger === 'animateThrow') {
-            this.stopThrowAnimation();
-        }
-
         const endState = { x: targetOffset, v: 0, a: 0 };
         const startState = this.quinticPlan
             ? this.quinticPlan.sample(now - this.quinticT0) // sample current pos/v/a on the fly
@@ -763,6 +767,8 @@ export class Carousel extends HTMLElement {
     }
 
     private animateThrow(v0: number, t0: number) {
+        this.stopEasedAnimation();
+
         const startPos = this.offset;
 
         // See https://www.desmos.com/calculator/uejv80whgp for the math
@@ -835,7 +841,8 @@ export class Carousel extends HTMLElement {
                 this.positionItems();
             }
         };
-        loop();
+
+        this.rafThrow = requestAnimationFrame(loop);
     }
 
     // ///////////////////////////////////////////////////////////////////////////
