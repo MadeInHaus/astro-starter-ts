@@ -759,7 +759,7 @@ export class Carousel extends HTMLElement {
         let targetOffset = 0;
         const dir = sign(targetIndex - this.activeItemIndexInternal);
         for (let i = this.activeItemIndexInternal; i !== targetIndex; i += dir) {
-            targetOffset -= this.getDistanceToNeighbor(i, dir);
+            targetOffset += this.getDistanceToNeighbor(i, -dir);
         }
         this.animateEased(targetOffset, targetIndex, duration);
     }
