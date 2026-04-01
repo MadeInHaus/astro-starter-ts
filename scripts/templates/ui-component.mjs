@@ -64,15 +64,14 @@ export const uiComponentTS = name => `export default class ${name} extends HTMLE
 }
 `;
 
-export const uiComponentCSS = () => `.root {
+export const uiComponentCSS = () => `@import '@/styles/breakpoints.css';
+
+.root {
 }
 
-@media (width >= 768px) {
+@media (--medium) {
 }
 
-@media (width >= 1280px) {
-}
-
-@media (width >= 1920px) {
+@media (--large) {
 }
 `;

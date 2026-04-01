@@ -25,16 +25,15 @@ import styles from './${name}.module.css';
 };
 
 export const pageComponentCSS = () => {
-    return `.root {
+    return `@import '@/styles/breakpoints.css';
+
+.root {
 }
 
-@media (width >= 768px) {
+@media (--medium) {
 }
 
-@media (width >= 1280px) {
-}
-
-@media (width >= 1920px) {
+@media (--large) {
 }
 `;
 };
