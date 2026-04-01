@@ -1,12 +1,12 @@
+import { loadEnv } from 'vite';
 import { defineConfig } from 'astro/config';
-import * as dotenv from 'dotenv';
 import sitemap from '@astrojs/sitemap';
 
-dotenv.config();
+const { SITE_DOMAIN } = loadEnv(process.env.NODE_ENV, process.cwd(), '');
 
 // https://astro.build/config
 export default defineConfig({
-    site: `https://${process.env.SITE_DOMAIN}`,
+    site: `https://${SITE_DOMAIN}`,
     build: { assets: '_static' },
     integrations: [sitemap()],
     devToolbar: { enabled: false },
