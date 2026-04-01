@@ -1,4 +1,4 @@
-import inquirer from 'inquirer';
+import { input, select, confirm } from '@inquirer/prompts';
 import chalk from 'chalk';
 import figlet from 'figlet';
 import sh from 'shelljs';
@@ -13,6 +13,13 @@ import {
 } from './templates/ui-component.mjs';
 
 import {
+    blockComponentAstro,
+    blockComponentAstroExternalTS,
+    blockComponentTS,
+    blockComponentCSS,
+} from './templates/block-component.mjs';
+
+import {
     pageComponentRoute,
     pageComponentAstro,
     pageComponentCSS,
@@ -21,42 +28,25 @@ import {
 sh.config.silent = true;
 
 const uiComponentScaffold = async () => {
-    const { name } = await inquirer.prompt([
-        {
-            type: 'input',
-            name: 'name',
-            message: 'UI Component Name:',
-            validate: name => !!name.match(/^[A-Z][A-Za-z0-9]*$/) || 'Name must be in CamelCase',
-        },
-    ]);
-    const { customElementName } = await inquirer.prompt([
-        {
-            type: 'input',
-            name: 'customElementName',
-            message: 'Custom Element Name:',
-            validate: name =>
-                !!name.match(/^[a-z][a-z0-9._]*-[a-z0-9._]*[a-z0-9]$/) ||
-                'Name must be in kebab-case',
-        },
-    ]);
-    const { seperateTS } = await inquirer.prompt([
-        {
-            type: 'confirm',
-            name: 'seperateTS',
-            message: `Separate TypeScript file?`,
-            default: true,
-        },
-    ]);
+    const name = await input({
+        message: 'UI Component Name:',
+        validate: name => !!name.match(/^[A-Z][A-Za-z0-9]*$/) || 'Name must be in CamelCase',
+    });
+    const customElementName = await input({
+        message: 'Custom Element Name:',
+        validate: name =>
+            !!name.match(/^[a-z][-.\\da-z_]*-[-.\\da-z_]+$/) || 'Name must be in kebab-case',
+    });
+    const seperateTS = await confirm({
+        message: `Separate TypeScript file?`,
+        default: true,
+    });
     const dir = path.resolve(process.cwd(), 'src', 'components', 'ui', name);
     if (sh.ls(dir).find(file => file === `${name}.astro`)) {
-        const { overwrite } = await inquirer.prompt([
-            {
-                type: 'confirm',
-                name: 'overwrite',
-                message: `src/components/ui/${name} exists. Overwrite?`,
-                default: false,
-            },
-        ]);
+        const overwrite = await confirm({
+            message: `src/components/ui/${name} exists. Overwrite?`,
+            default: false,
+        });
         if (!overwrite) {
             return;
         }
@@ -85,51 +75,98 @@ const uiComponentScaffold = async () => {
     console.log(seperateTS ? `- src/components/ui/${name}/${name}.ts ${check}\n` : '');
 };
 
+const blockComponentScaffold = async () => {
+    // Prompt for the Block Component name
+    const name = await input({
+        message: 'Block Component Name:',
+        validate: name => !!name.match(/^[A-Z][A-Za-z0-9]*$/) || 'Name must be in CamelCase',
+    });
+
+    // Prompt for the Custom Element name (if you want the same approach as UI)
+    // Or remove this if blocks do not need custom elements
+    const customElementName = await input({
+        message: 'Custom Element Name:',
+        validate: name =>
+            !!name.match(/^[a-z][-.\\da-z_]*-[-.\\da-z_]+$/) || 'Name must be in kebab-case',
+    });
+
+    // Prompt to see if you want a separate TS file
+    const seperateTS = await confirm({
+        message: `Separate TypeScript file?`,
+        default: true,
+    });
+
+    // Construct the directory: 'src/components/blocks/<Name>'
+    const dir = path.resolve(process.cwd(), 'src', 'components', 'blocks', name);
+
+    // Check for existing .astro file
+    if (sh.ls(dir).find(file => file === `${name}.astro`)) {
+        const overwrite = await confirm({
+            message: `src/components/blocks/${name} exists. Overwrite?`,
+            default: false,
+        });
+        if (!overwrite) {
+            return;
+        }
+    }
+
+    // Create directory if needed
+    sh.mkdir('-p', dir);
+
+    // Prepare file contents (we'll just reuse your existing template strings)
+    const astro = new sh.ShellString(blockComponentAstro(name, customElementName));
+    const astroExtTS = new sh.ShellString(blockComponentAstroExternalTS(name, customElementName));
+    const ts = new sh.ShellString(blockComponentTS(name));
+    const css = new sh.ShellString(blockComponentCSS());
+
+    // Write files depending on user's separateTS selection
+    if (seperateTS) {
+        astroExtTS.to(path.resolve(dir, `${name}.astro`));
+        css.to(path.resolve(dir, `${name}.module.css`));
+        ts.to(path.resolve(dir, `${name}.ts`));
+    } else {
+        astro.to(path.resolve(dir, `${name}.astro`));
+        css.to(path.resolve(dir, `${name}.module.css`));
+    }
+
+    // Log out the results
+    const check = chalk.green.bold('✓');
+    console.log('\nFiles written:');
+    console.log(`- src/components/blocks/${name}/${name}.astro ${check}`);
+    console.log(`- src/components/blocks/${name}/${name}.module.css ${check}`);
+    console.log(seperateTS ? `- src/components/blocks/${name}/${name}.ts ${check}\n` : '');
+};
+
 const pageComponentScaffold = async () => {
     const routeExamples = ['index', 'about', 'books/[id]', 'blog/[...rest]'];
     const routeExamplesText = routeExamples.map(r => chalk.green(r)).join(', ');
-    const { route, name } = await inquirer.prompt([
-        {
-            type: 'input',
-            name: 'route',
-            message: 'Route:',
-            validate: route =>
-                !!route.match(/^[a-z0-9\-\/\[\]\.]+$/) ||
-                `Examples of routes: ${routeExamplesText}`,
-        },
-        {
-            type: 'input',
-            name: 'name',
-            message: 'Page Component Name:',
-            validate: name =>
-                !!name.match(/^[A-Z][A-Za-z0-9]*$/) || 'Component name must be CamelCased',
-        },
-    ]);
+    const route = await input({
+        message: 'Route:',
+        validate: route =>
+            !!route.match(/^[a-z0-9\-\/\[\]\.]+$/) || `Examples of routes: ${routeExamplesText}`,
+    });
+    const name = await input({
+        message: 'Page Component Name:',
+        validate: name =>
+            !!name.match(/^[A-Z][A-Za-z0-9]*$/) || 'Component name must be CamelCased',
+    });
     const routeFile = route.match(/\.astro$/) ? route : `${route}.astro`;
     const routePath = path.resolve(process.cwd(), 'src', 'pages', routeFile);
     if (sh.test('-f', routePath)) {
-        const { overwrite } = await inquirer.prompt([
-            {
-                type: 'confirm',
-                name: 'overwrite',
-                message: `src/pages/${routeFile} exists. Overwrite?`,
-                default: false,
-            },
-        ]);
+        const overwrite = await confirm({
+            message: `src/pages/${routeFile} exists. Overwrite?`,
+            default: false,
+        });
         if (!overwrite) {
             return;
         }
     }
     const compDir = path.resolve(process.cwd(), 'src', 'components', 'pages', name);
     if (sh.ls(compDir).find(file => file === `${name}.astro`)) {
-        const { overwrite } = await inquirer.prompt([
-            {
-                type: 'confirm',
-                name: 'overwrite',
-                message: `src/components/pages/${name} exists. Overwrite?`,
-                default: false,
-            },
-        ]);
+        const overwrite = await confirm({
+            message: `src/components/pages/${name} exists. Overwrite?`,
+            default: false,
+        });
         if (!overwrite) {
             return;
         }
@@ -170,15 +207,11 @@ const run = async () => {
     );
     console.log(chalk.yellow.bold('  Component Scaffolder\n'));
 
-    const { type } = await inquirer.prompt([
-        {
-            type: 'list',
-            name: 'type',
-            message: 'Type:',
-            choices: ['ui', 'page'],
-            default: 'ui',
-        },
-    ]);
+    const type = await select({
+        message: 'Type:',
+        choices: ['ui', 'block', 'page'],
+        default: 'ui',
+    });
 
     switch (type) {
         case 'ui':
@@ -186,6 +219,9 @@ const run = async () => {
             break;
         case 'page':
             await pageComponentScaffold();
+            break;
+        case 'block':
+            await blockComponentScaffold();
             break;
     }
 };
