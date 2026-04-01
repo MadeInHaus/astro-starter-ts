@@ -1,73 +1,63 @@
-import inquirer from 'inquirer';
+import { confirm } from '@inquirer/prompts';
 import sh from 'shelljs';
 import path from 'path';
 
 const run = async () => {
-    const distPath = path.resolve(process.cwd(), 'dist');
-    const hasDist = sh.test('-d', distPath);
+    const items = [
+        {
+            path: path.resolve(process.cwd(), '.astro'),
+            label: '.astro folder',
+            test: '-d',
+        },
+        {
+            path: path.resolve(process.cwd(), 'dist'),
+            label: 'dist folder',
+            test: '-d',
+        },
+        {
+            path: path.resolve(process.cwd(), 'node_modules'),
+            label: 'node_modules folder',
+            test: '-d',
+        },
+        {
+            path: path.resolve(process.cwd(), 'package-lock.json'),
+            label: 'package-lock.json file',
+            test: '-f',
+        },
+        {
+            path: path.resolve(process.cwd(), 'yarn.lock'),
+            label: 'yarn.lock file',
+            test: '-f',
+        },
+    ];
 
-    const nodeModulesPath = path.resolve(process.cwd(), 'node_modules');
-    const hasNodeModules = sh.test('-d', nodeModulesPath);
+    const toRemove = [];
 
-    const packageLockPath = path.resolve(process.cwd(), 'package-lock.json');
-    const hasPackageLock = sh.test('-f', packageLockPath);
+    for (const item of items) {
+        const exists = sh.test(item.test, item.path);
+        if (!exists) continue;
 
-    const yarnLockPath = path.resolve(process.cwd(), 'yarn.lock');
-    const hasYarnLock = sh.test('-f', yarnLockPath);
+        const remove = await confirm({
+            message: `Remove ${item.label}?`,
+            default: true,
+        });
 
-    const { removeDist, removeNodeModules, removePackageLock, removeYarnLock } =
-        await inquirer.prompt([
-            {
-                type: 'confirm',
-                name: 'removeDist',
-                message: `Remove dist folder?`,
-                when: hasDist,
-                default: true,
-            },
-            {
-                type: 'confirm',
-                name: 'removeNodeModules',
-                message: `Remove node_modules folder?`,
-                when: hasNodeModules,
-                default: true,
-            },
-            {
-                type: 'confirm',
-                name: 'removePackageLock',
-                message: `Remove package-lock.json file?`,
-                when: hasPackageLock,
-                default: true,
-            },
-            {
-                type: 'confirm',
-                name: 'removeYarnLock',
-                message: `Remove yarn.lock file?`,
-                when: hasYarnLock,
-                default: true,
-            },
-        ]);
+        if (remove) {
+            toRemove.push(item);
+        }
+    }
 
-    if (
-        (!hasDist || !removeDist) &&
-        (!hasNodeModules || !removeNodeModules) &&
-        (!hasPackageLock || !removePackageLock) &&
-        (!hasYarnLock || !removeYarnLock)
-    ) {
+    if (toRemove.length === 0) {
         console.log('\nNothing to clean up.');
         return;
     }
 
-    if (hasDist && removeDist) {
-        sh.rm('-rf', distPath);
-    }
-    if (hasNodeModules && removeNodeModules) {
-        sh.rm('-rf', nodeModulesPath);
-    }
-    if (hasPackageLock && removePackageLock) {
-        sh.rm(packageLockPath);
-    }
-    if (hasYarnLock && removeYarnLock) {
-        sh.rm(yarnLockPath);
+    for (const item of toRemove) {
+        if (item.test === '-d') {
+            sh.rm('-rf', item.path);
+        } else {
+            sh.rm(item.path);
+        }
     }
 };
 
