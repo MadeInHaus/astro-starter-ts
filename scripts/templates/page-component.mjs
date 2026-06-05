@@ -1,11 +1,11 @@
 export const pageComponentRoute = name => {
     return `---
 import Layout from '@/layouts/Layout.astro';
-import ${name} from '@/components/pages/${name}/${name}.astro';
+import ${name}Page from '@/components/pages/${name}/${name}.astro';
 ---
 
 <Layout>
-    <${name} />
+    <${name}Page />
 </Layout>
 `;
 };
