@@ -25,9 +25,7 @@ import styles from './${name}.module.css';
 };
 
 export const pageComponentCSS = () => {
-    return `@import '@/styles/breakpoints.css';
-
-.root {
+    return `.root {
 }
 
 @media (--medium) {

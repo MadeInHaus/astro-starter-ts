@@ -62,9 +62,7 @@ export const blockComponentTS = name => `export default class ${name} extends HT
 }
 `;
 
-export const blockComponentCSS = () => `@import '@/styles/breakpoints.css';
-
-.root {
+export const blockComponentCSS = () => `.root {
 }
 
 @media (--medium) {
