@@ -5,7 +5,7 @@ import tsEslint from '@typescript-eslint/eslint-plugin';
 import tsEslintParser from '@typescript-eslint/parser';
 
 export default [
-    ...eslintPluginAstro.configs['jsx-a11y-recommended'],
+    ...eslintPluginAstro.configs['flat/jsx-a11y-recommended'],
     {
         files: ['**/*.ts'],
         languageOptions: { parser: tsEslintParser },
