@@ -1,89 +1,27 @@
-export function Ref(refId: string) {
-    return function (target: any, propertyKey: string) {
-        Object.defineProperty(target, propertyKey, {
-            get: function (this: HTMLElement): HTMLElement | null {
-                const element = this.querySelector<HTMLElement>(`[data-ref="${refId}"]`);
-                if (element) {
-                    Object.defineProperty(this, propertyKey, {
-                        value: element,
-                        configurable: true,
-                        writable: true,
-                    });
-                }
-                return element;
-            },
-            enumerable: true,
-            configurable: true,
-        });
-    };
-}
-
-export function Refs(refId: string) {
-    return function (target: any, propertyKey: string) {
-        Object.defineProperty(target, propertyKey, {
-            get: function (this: HTMLElement): HTMLElement[] {
-                const elements = [...this.querySelectorAll<HTMLElement>(`[data-ref="${refId}"]`)];
-                if (elements.length > 0) {
-                    Object.defineProperty(this, propertyKey, {
-                        value: elements,
-                        configurable: true,
-                        writable: true,
-                    });
-                }
-                return elements;
-            },
-            enumerable: true,
-            configurable: true,
-        });
-    };
-}
-
-export function Hydrate(id: string, defaultValue?: any) {
-    return function (target: any, propertyKey: string) {
-        Object.defineProperty(target, propertyKey, {
-            get: function (this: HTMLElement) {
-                try {
-                    const value = this.dataset[id];
-                    if (value) {
-                        const parsed = JSON.parse(value);
-                        Object.defineProperty(this, propertyKey, {
-                            value: parsed,
-                            writable: true,
-                            configurable: true,
-                        });
-                        return parsed;
-                    }
-                } catch (_e) {
-                    // Fallthrough
-                }
-                Object.defineProperty(this, propertyKey, {
-                    value: defaultValue,
-                    writable: true,
-                    configurable: true,
-                });
-                return defaultValue;
-            },
-            enumerable: true,
-            configurable: true,
-        });
-    };
-}
-
-export function Bind(_target: any, propertyKey: string, descriptor: PropertyDescriptor) {
-    const originalMethod = descriptor.value;
-    return {
-        get() {
-            const boundMethod = originalMethod.bind(this);
-            Object.defineProperty(this, propertyKey, {
-                value: boundMethod,
-                configurable: true,
-                writable: true,
-            });
-            return boundMethod;
-        },
-        configurable: true,
-    };
-}
+/**
+ * Method decorator that registers an event listener on the specified target.
+ *
+ * Listeners are added in `connectedCallback` and removed in `disconnectedCallback`.
+ * The decorated method is used directly as the handler, so use `@Bind` if you need
+ * a stable `this` reference.
+ *
+ * @param targetProp - Event target: `'this'`, `'window'`, `'document'`, or a property name that resolves to an `EventTarget`.
+ * @param eventName - The DOM event name to listen for (e.g. `'click'`, `'scroll'`).
+ * @param options - Standard `addEventListener` options (capture, passive, once, etc.).
+ *
+ * @example
+ * ```ts
+ * class MyComponent extends HTMLElement {
+ *     @Bind
+ *     @Listen('window', 'resize', { passive: true })
+ *     protected onResize(event: Event) { ... }
+ *
+ *     @Bind
+ *     @Listen('this', 'click')
+ *     protected onClick(event: MouseEvent) { ... }
+ * }
+ * ```
+ */
 
 interface ListenerData {
     targetProp: 'this' | 'document' | 'window' | string;
@@ -92,7 +30,7 @@ interface ListenerData {
     propertyKey: string;
 }
 
-export function Listen(
+export default function Listen(
     targetProp: ListenerData['targetProp'],
     eventName: ListenerData['eventName'],
     options?: ListenerData['options']
